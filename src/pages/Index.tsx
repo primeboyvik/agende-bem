@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { VisitTypeCard } from '@/components/scheduling/VisitTypeCard';
+import { Navbar } from '@/components/Navbar';
 import { Calendar, Sparkles, ArrowRight, Zap } from 'lucide-react';
 
 const Index = () => {
@@ -8,45 +9,28 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <header className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-electric opacity-5" />
-        <div className="absolute top-20 left-10 w-72 h-72 bg-electric-cyan/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-10 right-10 w-96 h-96 bg-electric-blue/20 rounded-full blur-3xl" />
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-violet-600 to-purple-600 opacity-10" />
+        <div className="absolute top-20 left-10 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-10 right-10 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl" />
 
-        <nav className="relative z-10 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
-          <div className="flex items-center gap-2">
-            <img src="" alt="Logo_Boo" />
-            <span className="text-2xl font-bold text-gradient-electric">Boo</span>
-          </div>
-          <div className="flex gap-4">
-            <Link to="/admin">
-              <Button className="text-white font-bold bg-[#0091FF] hover:bg-[#7daaff]" variant="outline" size="sm">
-                Área Admin
-              </Button>
-            </Link>
-            <Link to="/perfil">
-              <Button className="text-foreground font-bold hover:bg-muted" variant="ghost" size="sm">
-                Perfil
-              </Button>
-            </Link>
-          </div>
-        </nav>
+        <Navbar />
 
         <div className="relative z-10 max-w-4xl mx-auto px-6 py-20 text-left">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-8">
             <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-primary">Sistema de Agendamento Online</span>
+            <span className="text-sm font-medium text-primary hover:cursor-pointer justify-center place-items-center flex items-center">Sistema de Agendamento Online</span>
           </div>
 
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
             Quer{' '}
             <span className="text-gradient-electric">melhorar</span>
             <br />
-            sua gestão de{''}
+            sua gestão de{' '}
             <span className="text-gradient-electric">tempo?</span>
 
             {' '}<br />
 
-            <span className="text-gradient-electric">Pick a Boo!</span> 
+            <span className="text-gradient-electric">Pick a Boo!</span>
           </h1>
 
           <p className="text-lg text-muted-foreground mb-12 max-w-2xl">
@@ -58,12 +42,15 @@ const Index = () => {
           </p>
 
           <Link to="/agendar">
-            <Button size="lg" className="bg-[#006abb] hover:opacity-90 text-primary-foreground font-semibold px-8 py-6 text-lg shadow-electric group">
+            <Button size="lg" className="bg-gradient-electric hover:opacity-90 text-primary-foreground font-semibold px-8 py-6 text-lg shadow-electric group">
               Agendar Agora
-              <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-2 duration-300 transition-transform" />
             </Button>
           </Link>
         </div>
+
+        {/* Smooth transition to next section */}
+        <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-b from-transparent to-background pointer-events-none" />
       </header>
 
       {/* Visit Types Section */}
@@ -151,7 +138,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="py-8 px-6 border-t border-border">
         <div className="max-w-4xl mx-auto text-center text-sm text-muted-foreground">
-          <p>© 2024 AgendaElectric. Todos os direitos reservados.</p>
+          <p>© 2026 Boo. Todos os direitos reservados. All Rights Reserved.</p>
         </div>
       </footer>
     </div>
