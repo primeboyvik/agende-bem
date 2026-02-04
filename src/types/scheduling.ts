@@ -1,4 +1,4 @@
-export type VisitType = 'inspiracao' | 'conexoes';
+export type VisitType = 'inspiracao' | 'conexoes' | 'visita_tecnica';
 
 export type AppointmentStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 
@@ -52,6 +52,13 @@ export const VISIT_TYPE_INFO = {
     icon: 'Users',
     color: 'accent',
     price: 'R$ 80,00',
+  },
+  visita_tecnica: {
+    label: "Visita Técnica",
+    description: 'Duração de 2 horas, conhecendo as instalações e processos da empresa! Ideal para inspirar novos talentos.',
+    icon: 'Users',
+    color: 'accent',
+    price: 'R$ 00,00',
   },
 } as const;
 

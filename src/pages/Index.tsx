@@ -42,7 +42,7 @@ const Index = () => {
 
           </p>
 
-          <Link to="/agendar">
+          <Link to="/search">
             <Button size="lg" className="bg-gradient-electric hover:opacity-90 text-primary-foreground font-semibold px-8 py-6 text-lg shadow-electric group">
               Agendar Agora
               <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-2 duration-300 transition-transform" />
@@ -60,16 +60,19 @@ const Index = () => {
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Escolha sua Experiência</h2>
             <p className="text-muted-foreground">
-              Oferecemos dois tipos de visitas para atender às suas necessidades
+              Declare o jeito como você recebe seus visitantes!
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-3 gap-6">
             <Link to="/agendar?tipo=inspiracao">
               <VisitTypeCard type="inspiracao" />
             </Link>
             <Link to="/agendar?tipo=conexoes">
               <VisitTypeCard type="conexoes" />
+            </Link>
+            <Link to="/agendar?tipo=visita_tecnica">
+              <VisitTypeCard type="visita_tecnica" />
             </Link>
           </div>
         </div>
@@ -89,17 +92,17 @@ const Index = () => {
             {[
               {
                 step: '1',
-                title: 'Escolha o Tipo',
-                description: 'Selecione entre Visita Inspiração ou Conexões',
+                title: 'Se cadastre!',
+                description: 'Crie sua conta e nos diga quem é você!',
               },
               {
                 step: '2',
-                title: 'Selecione Data e Hora',
-                description: 'Veja os horários disponíveis no calendário',
+                title: 'Veja o que te interessa e quem está perto de você!',
+                description: 'Observe as oportunidades ao seu redor!',
               },
               {
                 step: '3',
-                title: 'Confirme seus Dados',
+                title: 'Marque seus horários!',
                 description: 'Preencha suas informações e pronto!',
               },
             ].map((item) => (
@@ -124,9 +127,9 @@ const Index = () => {
               Pronto para agendar?
             </h2>
             <p className="text-white/80 mb-6">
-              Reserve seu horário agora e garanta sua visita
+              Se cadastre e venha marcar seus compromissos com a gente!
             </p>
-            <Link to="/agendar">
+            <Link to="/search">
               <Button size="lg" variant="secondary" className="font-semibold px-8">
                 Começar Agora
                 <ArrowRight className="w-5 h-5 ml-2" />
