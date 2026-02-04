@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import Logo from '@/Logo.png';
 
 type Database = {
   public: {
@@ -49,29 +50,24 @@ const Admin = () => {
 
   // Check auth state
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
+    const checkAuth = () => {
+      const mockSession = localStorage.getItem("mock_session");
+      setIsAuthenticated(!!mockSession);
       setIsLoading(false);
 
-      if (session) {
+      if (mockSession) {
         fetchData();
       }
     };
 
     checkAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setIsAuthenticated(!!session);
-      if (session) {
-        fetchData();
-      }
-    });
-
-    return () => subscription.unsubscribe();
   }, []);
 
   const fetchData = async () => {
+    // Keep real fetch or mock it? User said "autenticação real" not needed.
+    // We will keep real fetch for now as it might assume public access or we don't care about data privacy for simulation.
+    // If it fails due to RLS, that's expected for "simulation" if we don't fix RLS, but let's try to keep it.
+
     // Fetch appointments with client data
     const { data: appointmentsData } = await supabase
       .from('appointments')
@@ -97,29 +93,25 @@ const Admin = () => {
     e.preventDefault();
     setAuthLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    // Mock Login
+    setTimeout(() => {
+      localStorage.setItem("mock_session", "true");
+      localStorage.setItem("user_email", email);
+      setIsAuthenticated(true);
+      fetchData(); // Load data after login
 
-    if (error) {
-      toast({
-        title: 'Erro ao entrar',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } else {
       toast({
         title: 'Bem-vindo!',
-        description: 'Login realizado com sucesso.',
+        description: 'Login realizado com sucesso (Simulação).',
       });
-    }
-
-    setAuthLoading(false);
+      setAuthLoading(false);
+    }, 1000);
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    localStorage.removeItem("mock_session");
+    localStorage.removeItem("user_email");
+    setIsAuthenticated(false);
     toast({
       title: 'Até logo!',
       description: 'Você saiu do sistema.',
@@ -127,6 +119,7 @@ const Admin = () => {
   };
 
   const updateAppointmentStatus = async (id: string, status: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
+    // ... Mock or real update? Let's try real first, ignoring RLS for now or assuming public.
     const { error } = await supabase
       .from('appointments')
       .update({ status })
@@ -239,12 +232,10 @@ const Admin = () => {
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-gradient-electric rounded-lg shadow-electric">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
+            <img src={Logo} alt="Admin Logo" className="h-8 w-auto" />
             <span className="text-lg font-bold">Admin</span>
           </div>
-          
+
           <Button variant="ghost" size="sm" onClick={handleLogout}>
             <LogOut className="w-4 h-4 mr-2" />
             Sair

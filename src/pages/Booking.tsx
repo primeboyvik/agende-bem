@@ -16,6 +16,7 @@ type Step = 'type' | 'datetime' | 'form' | 'success';
 
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import Logo from '@/Logo.png';
 
 const Booking = () => {
   const [searchParams] = useSearchParams();
@@ -41,16 +42,16 @@ const Booking = () => {
 
   // Protect route
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        toast({
-          title: "Login necessário",
-          description: "Por favor, faça login para continuar o agendamento.",
-          variant: "default",
-        });
-        navigate("/perfil?returnUrl=/agendar");
-      }
-    });
+    // Mock Auth Check
+    const mockSession = localStorage.getItem("mock_session");
+    if (!mockSession) {
+      toast({
+        title: "Login necessário",
+        description: "Por favor, faça login para continuar o agendamento.",
+        variant: "default",
+      });
+      navigate("/perfil?returnUrl=/agendar");
+    }
   }, [navigate]);
 
   // Load time slots when date changes
@@ -111,10 +112,7 @@ const Booking = () => {
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <div className="p-2 bg-gradient-electric rounded-lg shadow-electric">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-lg font-bold text-gradient-electric">AgendaElectric</span>
+            <img src={Logo} alt="Logo" className="h-8 w-auto" />
           </Link>
 
           {step !== 'success' && step !== 'type' && (

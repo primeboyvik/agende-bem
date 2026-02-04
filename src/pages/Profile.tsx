@@ -10,6 +10,9 @@ import { User, Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { LogOut, User as UserIcon, Camera, Loader2, ArrowLeft } from "lucide-react";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import Logo from '@/Logo.png';
+
 export default function Profile() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -21,126 +24,94 @@ export default function Profile() {
     const [isEditing, setIsEditing] = useState(false);
     const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
+    // Profile Data State
+    const [phone, setPhone] = useState("");
+    const [clientType, setClientType] = useState("usuario");
+    const [sex, setSex] = useState("");
+    const [gender, setGender] = useState("");
+    const [profession, setProfession] = useState("");
+
     // Auth Form State
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [authLoading, setAuthLoading] = useState(false);
 
+    // Mock Auth State
     useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                getProfile(session.user);
-            }
-            setLoading(false);
-            if (session?.user && returnUrl) {
-                navigate(returnUrl);
-            }
-        });
-
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                getProfile(session.user);
-                if (returnUrl) {
-                    navigate(returnUrl);
-                }
-            }
-            setLoading(false);
-        });
-
-        return () => subscription.unsubscribe();
-    }, []);
-
-    const getProfile = async (currentUser: User) => {
-        try {
-            // First try to get from profiles table
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('full_name')
-                .eq('id', currentUser.id)
-                .single();
-
-            if (!error && data) {
-                setFullName(data.full_name || "");
-            } else {
-                // Fallback to metadata
-                setFullName(currentUser.user_metadata.full_name || "");
-            }
-        } catch (error) {
-            console.error("Error loading profile:", error);
+        const mockSession = localStorage.getItem("mock_session");
+        if (mockSession) {
+            setSession({ user: { email: localStorage.getItem("user_email") || "user@example.com" } } as any);
+            setFullName(localStorage.getItem("user_name") || "Usuário Teste");
+            setPhone(localStorage.getItem("user_phone") || "");
+            setClientType(localStorage.getItem("user_type") || "usuario");
+            setSex(localStorage.getItem("user_sex") || "");
+            setGender(localStorage.getItem("user_gender") || "");
+            setProfession(localStorage.getItem("user_profession") || "");
+            // Also update email state for editing
+            setEmail(localStorage.getItem("user_email") || "user@example.com");
         }
-    };
+        setLoading(false);
+
+        if (mockSession && returnUrl) {
+            navigate(returnUrl);
+        }
+    }, [returnUrl, navigate]);
 
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
         setAuthLoading(true);
 
-        try {
-            if (authMode === "signup") {
-                const { error } = await supabase.auth.signUp({
-                    email,
-                    password,
-                    options: {
-                        data: {
-                            full_name: fullName,
-                        },
-                    },
-                });
-                if (error) throw error;
-                toast.success("Conta criada! Verifique seu email para confirmar.");
-            } else {
-                const { error } = await supabase.auth.signInWithPassword({
-                    email,
-                    password,
-                });
-                if (error) throw error;
-                toast.success("Login realizado com sucesso!");
-            }
-        } catch (error: any) {
-            toast.error(error.message);
-        } finally {
+        // Simulating network delay
+        setTimeout(() => {
+            localStorage.setItem("mock_session", "true");
+            localStorage.setItem("user_email", email);
+            if (fullName) localStorage.setItem("user_name", fullName);
+            // Default avatar for email login
+            localStorage.setItem("user_photo", "https://api.dicebear.com/7.x/avataaars/svg?seed=" + email);
+
+            setSession({ user: { email } } as any);
+            toast.success(authMode === "signup" ? "Conta criada (Simulação)!" : "Login realizado (Simulação)!");
             setAuthLoading(false);
-        }
+
+            // Check if onboarding is complete
+            const isOnboardingComplete = localStorage.getItem("onboarding_complete");
+
+            if (!isOnboardingComplete) {
+                // Redirect to onboarding for both
+                const onboardingUrl = returnUrl ? `/onboarding?returnUrl=${encodeURIComponent(returnUrl)}` : "/onboarding";
+                navigate(onboardingUrl);
+            } else {
+                if (returnUrl) {
+                    navigate(returnUrl);
+                }
+            }
+        }, 1000);
     };
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user) return;
         setAuthLoading(true);
+        // Mock update
+        setTimeout(() => {
+            localStorage.setItem("user_name", fullName);
+            localStorage.setItem("user_email", email);
+            localStorage.setItem("user_phone", phone);
+            localStorage.setItem("user_type", clientType);
+            localStorage.setItem("user_sex", sex);
+            localStorage.setItem("user_gender", gender);
+            localStorage.setItem("user_profession", profession);
 
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .upsert({
-                    id: user.id,
-                    full_name: fullName,
-                    updated_at: new Date().toISOString(),
-                    user_id: user.id
-                });
-
-            if (error) throw error;
-
-            // Also update auth metadata for consistency
-            await supabase.auth.updateUser({
-                data: { full_name: fullName }
-            });
-
-            toast.success("Perfil atualizado com sucesso!");
+            toast.success("Perfil atualizado (Simulação)!");
             setIsEditing(false);
-        } catch (error: any) {
-            toast.error("Erro ao atualizar perfil: " + error.message);
-        } finally {
             setAuthLoading(false);
-        }
+        }, 1000);
     };
 
     const handleLogout = async () => {
-        await supabase.auth.signOut();
+        localStorage.removeItem("mock_session");
+        localStorage.removeItem("user_email");
+        localStorage.removeItem("user_name");
+        setSession(null);
         navigate("/");
     };
 
@@ -242,14 +213,23 @@ export default function Profile() {
                                     type="button"
                                     variant="outline"
                                     className="w-full"
-                                    onClick={async () => {
-                                        const { error } = await supabase.auth.signInWithOAuth({
-                                            provider: 'google',
-                                            options: {
-                                                redirectTo: window.location.origin + '/perfil'
-                                            }
-                                        });
-                                        if (error) toast.error(error.message);
+                                    onClick={() => {
+                                        toast.success("Login com Google (Simulado)");
+                                        localStorage.setItem("mock_session", "true");
+                                        localStorage.setItem("user_email", "googleUser@gmail.com");
+                                        localStorage.setItem("user_name", "Google User");
+                                        if (!localStorage.getItem("user_photo")) {
+                                            localStorage.setItem("user_photo", "https://github.com/shadcn.png");
+                                        }
+
+                                        // Check onboarding for Google Login too
+                                        if (!localStorage.getItem("onboarding_complete")) {
+                                            const onboardingUrl = returnUrl ? `/onboarding?returnUrl=${encodeURIComponent(returnUrl)}` : "/onboarding";
+                                            navigate(onboardingUrl);
+                                        } else {
+                                            // Trigger re-render/nav manually since we aren't using a real auth listener
+                                            window.location.reload();
+                                        }
                                     }}
                                 >
                                     <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
@@ -269,10 +249,13 @@ export default function Profile() {
         <div className="min-h-screen bg-background p-6">
             <div className="max-w-2xl mx-auto">
                 <header className="flex justify-between items-center mb-12">
-                    <Button variant="ghost" onClick={() => navigate("/")}>
-                        <ArrowLeft className="w-4 h-4 mr-2" />
-                        Voltar
-                    </Button>
+                    <div className="flex items-center gap-4">
+                        <img src={Logo} alt="Logo" className="h-8 w-auto" />
+                        <Button variant="ghost" onClick={() => navigate("/")}>
+                            <ArrowLeft className="w-4 h-4 mr-2" />
+                            Voltar
+                        </Button>
+                    </div>
                     <Button variant="outline" onClick={handleLogout} className="text-destructive hover:text-destructive">
                         <LogOut className="w-4 h-4 mr-2" />
                         Sair
@@ -297,31 +280,105 @@ export default function Profile() {
                     </div>
 
                     <form onSubmit={handleUpdateProfile} className="space-y-6 max-w-md mx-auto">
-                        <div className="space-y-2">
-                            <Label>Nome Completo</Label>
-                            <div className="flex gap-2">
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div className="space-y-2">
+                                <Label>Nome Completo</Label>
                                 <Input
                                     value={fullName}
                                     onChange={(e) => setFullName(e.target.value)}
                                     disabled={!isEditing}
                                     className="bg-background"
                                 />
-                                {!isEditing ? (
-                                    <Button type="button" variant="outline" onClick={() => setIsEditing(true)}>
-                                        Editar
-                                    </Button>
-                                ) : (
-                                    <div className="flex gap-2">
-                                        <Button type="button" variant="ghost" onClick={() => setIsEditing(false)}>
-                                            Cancelar
-                                        </Button>
-                                        <Button type="submit" disabled={authLoading}>
-                                            {authLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                                            Salvar
-                                        </Button>
-                                    </div>
-                                )}
                             </div>
+
+                            <div className="space-y-2">
+                                <Label>Email</Label>
+                                <Input
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    disabled={!isEditing}
+                                    className="bg-background"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Telefone</Label>
+                                <Input
+                                    value={phone}
+                                    onChange={(e) => setPhone(e.target.value)}
+                                    disabled={!isEditing}
+                                    placeholder="(00) 00000-0000"
+                                    className="bg-background"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Tipo de Cliente</Label>
+                                <Select value={clientType} onValueChange={setClientType} disabled={!isEditing}>
+                                    <SelectTrigger className="bg-background">
+                                        <SelectValue placeholder="Selecione" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="usuario">Usuário Pessoal</SelectItem>
+                                        <SelectItem value="empresa">Empresa</SelectItem>
+                                        <SelectItem value="prestador">Prestador de Serviço</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Sexo</Label>
+                                <Select value={sex} onValueChange={setSex} disabled={!isEditing}>
+                                    <SelectTrigger className="bg-background">
+                                        <SelectValue placeholder="Selecione" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="masculino">Masculino</SelectItem>
+                                        <SelectItem value="feminino">Feminino</SelectItem>
+                                        <SelectItem value="outro">Outro / Prefiro não dizer</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Gênero (Identidade)</Label>
+                                <Input
+                                    value={gender}
+                                    onChange={(e) => setGender(e.target.value)}
+                                    disabled={!isEditing}
+                                    placeholder="Como você se identifica?"
+                                    className="bg-background"
+                                />
+                            </div>
+
+                            <div className="space-y-2 md:col-span-2">
+                                <Label>Profissão</Label>
+                                <Input
+                                    value={profession}
+                                    onChange={(e) => setProfession(e.target.value)}
+                                    disabled={!isEditing}
+                                    placeholder="Sua profissão"
+                                    className="bg-background"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2">
+                            {!isEditing ? (
+                                <Button type="button" variant="outline" onClick={() => setIsEditing(true)}>
+                                    Editar Perfil
+                                </Button>
+                            ) : (
+                                <>
+                                    <Button type="button" variant="ghost" onClick={() => setIsEditing(false)}>
+                                        Cancelar
+                                    </Button>
+                                    <Button type="submit" disabled={authLoading}>
+                                        {authLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                                        Salvar Alterações
+                                    </Button>
+                                </>
+                            )}
                         </div>
 
                         <div className="p-4 bg-muted/50 rounded-lg border border-border/50">
