@@ -1,19 +1,19 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Session } from "@supabase/supabase-js";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { LogOut, User as UserIcon, Camera, Loader2, ArrowLeft, Clock, Building2, Briefcase, MapPin, CreditCard, LayoutDashboard, Plus, Trash } from "lucide-react";
+import { LogOut, User as UserIcon, Loader2, ArrowLeft, Calendar, Save, Building2, Briefcase, MapPin, CreditCard, LayoutDashboard, Plus, Trash, Clock } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Logo from '@/Logo.png';
-import { Company, getCompanies } from "@/data/mockCompanies";
+import { supabase } from "@/integrations/supabase/client";
 
 type ProfileTab = "data" | "address" | "payment" | "services";
 
@@ -21,39 +21,35 @@ export default function Profile() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnUrl = searchParams.get("returnUrl");
-  const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState<Session | null>(null);
-  const [activeTab, setActiveTab] = useState<ProfileTab>("data");
-  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
-  // -- STATE --
-  const [fullName, setFullName] = useState("");
+  const { user, profile, isLoading, signIn, signUp, signOut, updateProfile } = useAuth();
+
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
+  // -- PROFILE DATA STATES --
   const [phone, setPhone] = useState("");
   const [clientType, setClientType] = useState("usuario");
   const [sex, setSex] = useState("");
   const [gender, setGender] = useState("");
   const [profession, setProfession] = useState("");
-
-  // Company
   const [companyName, setCompanyName] = useState("");
   const [cnpj, setCnpj] = useState("");
-  // Services (Legacy field, kept for compatibility if needed, but new system uses list)
-  // const [services, setServices] = useState(""); 
 
-  // New Arrays
+  // -- COMPLEX DATA STATES --
   const [addresses, setAddresses] = useState<any[]>([]);
   const [cards, setCards] = useState<any[]>([]);
   const [myServices, setMyServices] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<ProfileTab>("data");
 
   // Inputs for adding new items
   const [newService, setNewService] = useState({ name: "", price: "", description: "", image: "" });
   const [newAddress, setNewAddress] = useState({ street: "", city: "", zip: "" });
   const [newCard, setNewCard] = useState({ number: "", holder: "", expiry: "" });
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [authLoading, setAuthLoading] = useState(false);
-  const [password, setPassword] = useState(""); // For auth form
 
   // Availability
   const defaultAvailability = {
@@ -68,197 +64,378 @@ export default function Profile() {
   const [availability, setAvailability] = useState(defaultAvailability);
   const daysMap = { seg: "Segunda", ter: "Terça", qua: "Quarta", qui: "Quinta", sex: "Sexta", sab: "Sábado", dom: "Domingo" };
 
-  // -- EFFECTS --
+
+  // Redirect if already logged in and has returnUrl
   useEffect(() => {
-    const mockSession = localStorage.getItem("mock_session");
-    if (mockSession) {
-      setSession({ user: { email: localStorage.getItem("user_email") || "user@example.com" } } as any);
-      setFullName(localStorage.getItem("user_name") || "");
-      setEmail(localStorage.getItem("user_email") || "user@example.com");
-      setPhone(localStorage.getItem("user_phone") || "");
-      setClientType(localStorage.getItem("user_type") || "usuario");
-      setSex(localStorage.getItem("user_sex") || "");
-      setGender(localStorage.getItem("user_gender") || "");
-      setProfession(localStorage.getItem("user_profession") || "");
-      setCompanyName(localStorage.getItem("user_company_name") || "");
-      setCnpj(localStorage.getItem("user_cnpj") || "");
-
-      // Load Complex Data
-      const savedAvailability = localStorage.getItem("user_availability");
-      if (savedAvailability) setAvailability(JSON.parse(savedAvailability));
-
-      const savedAddresses = localStorage.getItem("user_addresses");
-      if (savedAddresses) setAddresses(JSON.parse(savedAddresses));
-
-      const savedCards = localStorage.getItem("user_cards");
-      if (savedCards) setCards(JSON.parse(savedCards));
-
-      const savedServices = localStorage.getItem("user_my_services");
-      if (savedServices) setMyServices(JSON.parse(savedServices));
-    }
-    setLoading(false);
-
-    if (mockSession && returnUrl) {
+    if (!isLoading && user && returnUrl) {
       navigate(returnUrl);
     }
-  }, [returnUrl, navigate]);
+  }, [isLoading, user, returnUrl, navigate]);
 
-  // -- HANDLERS --
-  const handleLogout = async () => {
-    localStorage.removeItem("mock_session");
-    // Clear critical data
-    navigate("/");
-  };
+  // Load Data from Supabase
+  useEffect(() => {
+    if (profile) {
+      // Basic Profile
+      setFullName(profile.full_name || "");
+      // @ts-ignore - Assuming columns exist from SQL schema
+      setPhone(profile.phone || "");
+      // @ts-ignore
+      setClientType(profile.user_type || "usuario");
+      // @ts-ignore
+      setSex(profile.sex || "");
+      // @ts-ignore
+      setGender(profile.gender || "");
+      // @ts-ignore
+      setProfession(profile.profession || "");
+      // @ts-ignore
+      setCompanyName(profile.company_name || "");
+      // @ts-ignore
+      setCnpj(profile.cnpj || "");
+
+      // Fetch Sub-tables
+      const fetchSubData = async () => {
+        if (!user) return;
+
+        const { data: servicesData } = await supabase.from('services').select('*').eq('user_id', user.id);
+        if (servicesData) setMyServices(servicesData);
+
+        const { data: addrData } = await supabase.from('addresses').select('*').eq('user_id', user.id);
+        if (addrData) setAddresses(addrData);
+
+        const { data: cardsData } = await supabase.from('payment_methods').select('*').eq('user_id', user.id);
+        if (cardsData) setCards(cardsData);
+      };
+
+      fetchSubData();
+    }
+  }, [profile, user]);
+
+  // ... inside component ...
+  const [signupSuccess, setSignupSuccess] = useState(false);
+
+  // ... existing effects ...
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthLoading(true);
-    setTimeout(() => {
-      localStorage.setItem("mock_session", "true");
-      localStorage.setItem("user_email", email);
-      if (fullName) localStorage.setItem("user_name", fullName);
 
-      setSession({ user: { email } } as any);
-      toast.success("Bem-vindo(a)!");
+    try {
+      if (authMode === "signup") {
+        await signUp(email, password, fullName);
+        setSignupSuccess(true);
+        toast.success("Conta criada! Verifique seu email.");
+      } else {
+        await signIn(email, password);
+        toast.success("Login realizado com sucesso!");
+        if (returnUrl) {
+          navigate(returnUrl);
+        }
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Erro na autenticação");
+    } finally {
       setAuthLoading(false);
-
-      if (returnUrl) navigate(returnUrl);
-      else navigate("/dashboard");
-    }, 1000);
+    }
   };
 
-  const saveChanges = (silent = false) => {
-    localStorage.setItem("user_name", fullName);
-    localStorage.setItem("user_email", email);
-    localStorage.setItem("user_phone", phone);
-    localStorage.setItem("user_type", clientType);
-    localStorage.setItem("user_sex", sex);
-    localStorage.setItem("user_gender", gender);
-    localStorage.setItem("user_profession", profession);
-    localStorage.setItem("user_company_name", companyName);
-    localStorage.setItem("user_cnpj", cnpj);
+  // ... rest of code
 
-    localStorage.setItem("user_availability", JSON.stringify(availability));
-    localStorage.setItem("user_addresses", JSON.stringify(addresses));
-    localStorage.setItem("user_cards", JSON.stringify(cards));
-    localStorage.setItem("user_my_services", JSON.stringify(myServices));
+  const handleSaveAll = async () => {
+    if (!user) return;
+    setAuthLoading(true);
 
-    if ((clientType === 'empresa' || clientType === 'prestador')) {
-      updatePublicCompanyRegistry();
-    }
+    try {
+      // 1. Update Profile
+      const updates = {
+        full_name: fullName,
+        phone,
+        user_type: clientType,
+        sex,
+        gender,
+        profession,
+        company_name: companyName,
+        cnpj,
+        updated_at: new Date().toISOString(),
+      };
 
-    if (!silent) {
-      toast.success("Perfil atualizado!");
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update(updates)
+        // @ts-ignore
+        .eq('user_id', user.id);
+
+      if (profileError) throw profileError;
+
+      // 2. Services (Naive sync: upsert all local state)
+      // Ideally we differentiate new vs update, but upsert with ID works if ID is preserved
+      // For new items added locally, they might have temp IDs (Date.now()), we should remove those
+      // and let DB generate UUIDs, OR generate UUIDs locally.
+      // Simplified approach: Insert new ones, update existing ones.
+
+      // Note: For simplicity in this iteration, we iterate and upsert.
+      for (const service of myServices) {
+        const payload: any = {
+          user_id: user.id,
+          name: service.name,
+          price: parseFloat(service.price) || 0,
+          description: service.description,
+          image_url: service.image,
+        };
+        // If ID looks like a UUID (length 36), include it. If it's a number (Date.now()), don't.
+        if (typeof service.id === 'string' && service.id.length > 20) {
+          payload.id = service.id;
+        }
+
+        await supabase.from('services').upsert(payload);
+      }
+
+      // Refresh Lists
+      const { data: servicesData } = await supabase.from('services').select('*').eq('user_id', user.id);
+      if (servicesData) setMyServices(servicesData);
+
+      // 3. Addresses
+      for (const addr of addresses) {
+        const payload: any = {
+          user_id: user.id,
+          street: addr.street,
+          city: addr.city,
+          zip_code: addr.zip, // Schema uses zip_code
+        };
+        if (typeof addr.id === 'string' && addr.id.length > 20) {
+          payload.id = addr.id;
+        }
+        await supabase.from('addresses').upsert(payload);
+      }
+      const { data: addrData } = await supabase.from('addresses').select('*').eq('user_id', user.id);
+      if (addrData) setAddresses(addrData);
+
+      // 4. Payment Methods
+      for (const card of cards) {
+        const payload: any = {
+          user_id: user.id,
+          card_last4: card.last4 || card.card_last4,
+          card_holder: card.holder || card.card_holder,
+          expiry_date: card.expiry || card.expiry_date,
+        };
+        if (typeof card.id === 'string' && card.id.length > 20) {
+          payload.id = card.id;
+        }
+        await supabase.from('payment_methods').upsert(payload);
+      }
+      const { data: cardsData } = await supabase.from('payment_methods').select('*').eq('user_id', user.id);
+      if (cardsData) setCards(cardsData);
+
+      toast.success("Todas as alterações foram salvas com sucesso!");
       setIsEditing(false);
+
+    } catch (error: any) {
+      console.error("Save Error:", error);
+      toast.error("Erro ao salvar alterações: " + error.message);
+    } finally {
+      setAuthLoading(false);
     }
-  };
+  }
 
-  // Sync current user to the public "searchable" list
-  const updatePublicCompanyRegistry = () => {
-    const storedCompaniesStr = localStorage.getItem("registered_companies");
-    let companies: Company[] = storedCompaniesStr ? JSON.parse(storedCompaniesStr) : [];
-
-    // Remove existing entry for this user to update it
-    // We use email as ID for this mock logic since we don't have real IDs
-    const userId = email || "current_user"; // Simplification
-    companies = companies.filter(c => c.id !== userId);
-
-    const newCompany: Company = {
-      id: userId,
-      name: clientType === 'empresa' ? companyName : fullName,
-      type: clientType === 'empresa' ? "Empresa" : "Profissional",
-      description: clientType === 'empresa' ? "Empresa parceira Agende Bem" : `Profissional: ${profession}`,
-      services: myServices.map(s => s.name),
-      rating: 5.0, // Default for new
-      address: addresses.length > 0 ? `${addresses[0].street} - ${addresses[0].city}` : "Endereço não informado",
-      image: "https://images.unsplash.com/photo-1556742049-0cfed4f7a07d?auto=format&fit=crop&q=60&w=500" // Default placeholder
-    };
-
-    if (newCompany.name) { // Only save if has name
-      companies.push(newCompany);
-      localStorage.setItem("registered_companies", JSON.stringify(companies));
-      // toast.success("Dados da empresa sincronizados com a busca!");
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast.success("Até logo!");
+      navigate("/");
+    } catch (error: any) {
+      toast.error("Erro ao sair");
     }
   };
 
   // Add Item Handlers
   const addService = () => {
     if (!newService.name || !newService.price) return;
+    // Temp ID
     setMyServices([...myServices, { ...newService, id: Date.now() }]);
     setNewService({ name: "", price: "", description: "", image: "" });
-    saveChanges(true); // Auto save
   };
 
   const addAddress = () => {
     if (!newAddress.street) return;
-    setAddresses([...addresses, { ...newAddress, id: Date.now() }]);
+    setAddresses([...addresses, { ...newAddress, id: Date.now(), zip: newAddress.zip }]);
     setNewAddress({ street: "", city: "", zip: "" });
-    saveChanges(true);
   };
 
   const addCard = () => {
     if (!newCard.number) return;
     setCards([...cards, { ...newCard, last4: newCard.number.slice(-4), id: Date.now() }]);
     setNewCard({ number: "", holder: "", expiry: "" });
-    saveChanges(true);
   };
 
-  const removeService = (id: number) => {
+  const removeService = async (id: any) => {
+    // Optimistic Update
     setMyServices(myServices.filter(s => s.id !== id));
-    saveChanges(true);
+    // If authentic ID, delete from DB
+    if (typeof id === 'string' && id.length > 20) {
+      await supabase.from('services').delete().eq('id', id);
+    }
   };
 
-  // -- RENDERERS --
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+  const removeAddress = async (id: any) => {
+    setAddresses(addresses.filter(a => a.id !== id));
+    if (typeof id === 'string' && id.length > 20) {
+      await supabase.from('addresses').delete().eq('id', id);
+    }
+  };
 
-  if (!session) {
-    // Not Logged In
+  const removeCard = async (id: any) => {
+    setCards(cards.filter(c => c.id !== id));
+    if (typeof id === 'string' && id.length > 20) {
+      await supabase.from('payment_methods').delete().eq('id', id);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Login/Signup Form
+  if (!user) {
+    if (signupSuccess) {
+      return (
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+          <Card className="w-full max-w-md p-8 text-center space-y-6 shadow-electric border-primary/20 bg-card/50">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-4xl">📧</span>
+            </div>
+            <h2 className="text-2xl font-bold">Verifique seu Email</h2>
+            <p className="text-muted-foreground">
+              Enviamos um link de confirmação para <strong>{email}</strong>.
+            </p>
+            <p className="text-sm">
+              Por favor, clique no link enviada para ativar sua conta e realizar o login.
+            </p>
+            <Button
+              variant="outline"
+              className="w-full mt-4"
+              onClick={() => {
+                setSignupSuccess(false);
+                setAuthMode("login");
+              }}
+            >
+              Voltar para Login
+            </Button>
+          </Card>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <Button variant="ghost" className="mb-8" onClick={() => navigate("/")}>
-            <ArrowLeft className="w-4 h-4 mr-2" /> Voltar ao Início
+          <Button
+            variant="ghost"
+            className="mb-8"
+            onClick={() => navigate("/")}
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Voltar ao Início
           </Button>
 
           <Card className="p-8 border-none bg-card/50 shadow-none sm:border-2 sm:border-border/50 sm:shadow-electric rounded-2xl">
             <div className="text-center mb-8">
               <h1 className="text-2xl font-bold mb-2">Bem-vindo ao Boo</h1>
-              <p className="text-muted-foreground">{authMode === "login" ? "Faça login para continuar" : "Crie sua conta"}</p>
+              <p className="text-muted-foreground">
+                {authMode === "login"
+                  ? "Faça login para gerenciar seus agendamentos"
+                  : "Crie sua conta para começar"}
+              </p>
             </div>
 
-            <Tabs value={authMode} onValueChange={(v) => setAuthMode(v as any)}>
+            <Tabs value={authMode} onValueChange={(v) => setAuthMode(v as "login" | "signup")}>
               <TabsList className="grid w-full grid-cols-2 mb-8">
-                <TabsTrigger value="login">Entrar</TabsTrigger>
-                <TabsTrigger value="signup">Cadastrar</TabsTrigger>
+                <TabsTrigger value="login">Login</TabsTrigger>
+                <TabsTrigger value="signup">Cadastro</TabsTrigger>
               </TabsList>
+
               <form onSubmit={handleAuth} className="space-y-4">
                 {authMode === "signup" && (
-                  <Input placeholder="Nome Completo" value={fullName} onChange={e => setFullName(e.target.value)} required className="bg-background" />
+                  <div className="space-y-2">
+                    <Label htmlFor="fullName">Nome Completo</Label>
+                    <Input
+                      id="fullName"
+                      placeholder="Seu nome"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                      className="bg-background"
+                    />
+                  </div>
                 )}
-                <Input placeholder="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} required className="bg-background" />
-                <Input placeholder="Senha" type="password" value={password} onChange={e => setPassword(e.target.value)} required className="bg-background" />
-                <Button type="submit" className="w-full bg-gradient-electric text-white shadow-electric mt-4" disabled={authLoading}>
-                  {authLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : (authMode === "login" ? "Entrar" : "Criar Conta")}
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="bg-background"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password">Senha</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="bg-background"
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-electric hover:opacity-90 text-primary-foreground font-semibold shadow-electric mt-4"
+                  disabled={authLoading}
+                >
+                  {authLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {authMode === "login" ? "Entrar" : "Criar Conta"}
                 </Button>
               </form>
             </Tabs>
+
+            {authMode === "signup" && (
+              <p className="text-xs text-muted-foreground text-center mt-4">
+                Você receberá um email para confirmar sua conta
+              </p>
+            )}
           </Card>
         </div>
       </div>
-    )
+    );
   }
 
-  // Logged In + Sidebar
+  // Profile View (Logged In)
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
         <header className="flex justify-between items-center mb-8 bg-white/50 p-4 rounded-xl shadow-sm backdrop-blur-sm">
           <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate("/dashboard")}>
             <img src={Logo} alt="Logo" className="h-8 w-auto" />
             <span className="font-semibold text-lg">Minha Conta</span>
           </div>
           <div className="flex items-center gap-4">
+            {isEditing && (
+              <Button onClick={handleSaveAll} className="bg-green-600 hover:bg-green-700 text-white animate-pulse-glow" disabled={authLoading}>
+                {authLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Salvar Tudo
+              </Button>
+            )}
             <Button variant="ghost" onClick={() => navigate("/dashboard")}>
               <LayoutDashboard className="w-4 h-4 mr-2" />
               Dashboard
@@ -312,8 +489,8 @@ export default function Profile() {
                 <div className="space-y-6">
                   <div className="flex justify-between items-center">
                     <h2 className="text-xl font-bold">Dados Pessoais</h2>
-                    <Button onClick={() => isEditing ? saveChanges() : setIsEditing(true)} variant={isEditing ? "default" : "outline"}>
-                      {isEditing ? "Salvar Alterações" : "Editar"}
+                    <Button onClick={() => isEditing ? handleSaveAll() : setIsEditing(true)} variant={isEditing ? "default" : "outline"}>
+                      {isEditing ? "Salvar" : "Editar"}
                     </Button>
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
@@ -323,7 +500,7 @@ export default function Profile() {
                     </div>
                     <div className="space-y-2">
                       <Label>Email</Label>
-                      <Input value={email} onChange={e => setEmail(e.target.value)} disabled={!isEditing} />
+                      <Input value={user.email || ""} disabled />
                     </div>
                     <div className="space-y-2">
                       <Label>Telefone</Label>
@@ -396,12 +573,9 @@ export default function Profile() {
                       <Card key={addr.id} className="p-4 flex justify-between items-center bg-muted/20">
                         <div>
                           <p className="font-medium">{addr.street}</p>
-                          <p className="text-sm text-muted-foreground">{addr.city} - {addr.zip}</p>
+                          <p className="text-sm text-muted-foreground">{addr.city} - {addr.zip || addr.zip_code}</p>
                         </div>
-                        <Button variant="ghost" size="icon" className="text-destructive"><Trash className="w-4 h-4" onClick={() => {
-                          setAddresses(addresses.filter(a => a.id !== addr.id));
-                          saveChanges(true);
-                        }} /></Button>
+                        <Button variant="ghost" size="icon" className="text-destructive"><Trash className="w-4 h-4" onClick={() => removeAddress(addr.id)} /></Button>
                       </Card>
                     ))}
                   </div>
@@ -427,14 +601,11 @@ export default function Profile() {
                         <div className="flex items-center gap-3">
                           <CreditCard className="w-6 h-6" />
                           <div>
-                            <p className="font-medium">•••• •••• •••• {card.last4}</p>
-                            <p className="text-xs opacity-70">{card.holder}</p>
+                            <p className="font-medium">•••• •••• •••• {card.last4 || card.card_last4}</p>
+                            <p className="text-xs opacity-70">{card.holder || card.card_holder}</p>
                           </div>
                         </div>
-                        <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300"><Trash className="w-4 h-4" onClick={() => {
-                          setCards(cards.filter(c => c.id !== card.id));
-                          saveChanges(true);
-                        }} /></Button>
+                        <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300"><Trash className="w-4 h-4" onClick={() => removeCard(card.id)} /></Button>
                       </Card>
                     ))}
                   </div>
@@ -464,7 +635,7 @@ export default function Profile() {
                     {myServices.map((service) => (
                       <Card key={service.id} className="p-4 flex gap-4 items-center">
                         <div className="w-16 h-16 bg-muted rounded-md overflow-hidden flex-shrink-0">
-                          {service.image ? <img src={service.image} className="w-full h-full object-cover" /> : <Briefcase className="w-full h-full p-4 text-muted-foreground" />}
+                          {service.image || service.image_url ? <img src={service.image || service.image_url} className="w-full h-full object-cover" /> : <Briefcase className="w-full h-full p-4 text-muted-foreground" />}
                         </div>
                         <div className="flex-1">
                           <h3 className="font-bold">{service.name}</h3>
@@ -485,7 +656,7 @@ export default function Profile() {
                       </div>
                       <div className="space-y-2">
                         <Label>Valor (R$)</Label>
-                        <Input placeholder="0,00" value={newService.price} onChange={e => setNewService({ ...newService, price: e.target.value })} />
+                        <Input placeholder="0.00" value={newService.price} onChange={e => setNewService({ ...newService, price: e.target.value })} />
                       </div>
                       <div className="space-y-2 md:col-span-2">
                         <Label>Descrição</Label>
