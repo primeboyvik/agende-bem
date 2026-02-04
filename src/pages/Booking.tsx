@@ -5,7 +5,6 @@ import { Card } from '@/components/ui/card';
 import { TimeSlotPicker } from '@/components/scheduling/TimeSlotPicker';
 import { ClientForm, ClientFormData } from '@/components/scheduling/ClientForm';
 import { useScheduling } from '@/hooks/useScheduling';
-<<<<<<< HEAD
 import { TimeSlot } from '@/types/scheduling';
 import { ArrowLeft, CheckCircle, MapPin, Star } from 'lucide-react';
 import { format } from 'date-fns';
@@ -16,27 +15,12 @@ import { Calendar } from "@/components/ui/calendar";
 import { getCompanies, Company } from '@/data/mockCompanies';
 
 type Step = 'service' | 'datetime' | 'form' | 'success';
-=======
-import { useAuth } from '@/hooks/useAuth';
-import { VisitType, TimeSlot, VISIT_TYPE_INFO } from '@/types/scheduling';
-import { ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import Logo from '@/Logo.png';
-
-type Step = 'type' | 'datetime' | 'form' | 'success';
->>>>>>> bc8d421ec2458693cc292b982902705ef57900ae
 
 const Booking = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-<<<<<<< HEAD
   const { toast } = useToast();
   const { generateTimeSlots, createAppointment, isLoading } = useScheduling();
-=======
-  const { user, profile, isLoading: authLoading } = useAuth();
-  const { getAvailableDays, generateTimeSlots, createAppointment, isLoading } = useScheduling();
->>>>>>> bc8d421ec2458693cc292b982902705ef57900ae
 
   const companyId = searchParams.get('company');
   const [company, setCompany] = useState<Company | null>(null);
@@ -61,9 +45,8 @@ const Booking = () => {
     }
   }, [companyId]);
 
-  // Protect route - redirect to login if not authenticated
+  // Protect route
   useEffect(() => {
-<<<<<<< HEAD
     const mockSession = localStorage.getItem("mock_session");
     if (!mockSession) {
       toast({
@@ -74,19 +57,13 @@ const Booking = () => {
       navigate(`/perfil?returnUrl=/agendar${companyId ? `?company=${companyId}` : ''}`);
     }
   }, [navigate, companyId]);
-=======
-    if (!authLoading && !user) {
-      navigate("/perfil?returnUrl=/agendar");
-    }
-  }, [authLoading, user, navigate]);
->>>>>>> bc8d421ec2458693cc292b982902705ef57900ae
 
   // Load time slots when date changes
   useEffect(() => {
     if (selectedDate) {
       generateTimeSlots(selectedDate).then(setTimeSlots);
     }
-  }, [selectedDate, generateTimeSlots]);
+  }, [selectedDate]);
 
   const handleDateTimeNext = () => {
     if (selectedDate && selectedTime) {
@@ -131,25 +108,6 @@ const Booking = () => {
     }
   };
 
-<<<<<<< HEAD
-=======
-  const availableDays = getAvailableDays();
-
-  // Show loading while checking auth
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  // Don't render if not authenticated (will redirect)
-  if (!user) {
-    return null;
-  }
-
->>>>>>> bc8d421ec2458693cc292b982902705ef57900ae
   return (
     <div className="min-h-screen bg-background pb-12">
       {/* Header */}
@@ -193,37 +151,20 @@ const Booking = () => {
             {['service', 'datetime', 'form'].map((s, i) => (
               <div key={s} className="flex items-center gap-2">
                 <div
-<<<<<<< HEAD
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === s
                     ? 'bg-gradient-electric text-white shadow-electric'
                     : ['service', 'datetime', 'form'].indexOf(step) > i
-=======
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                    step === s
-                      ? 'bg-gradient-electric text-white shadow-electric'
-                      : ['type', 'datetime', 'form'].indexOf(step) > i
->>>>>>> bc8d421ec2458693cc292b982902705ef57900ae
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted text-muted-foreground'
-                  }`}
+                    }`}
                 >
                   {i + 1}
                 </div>
                 {i < 2 && (
-<<<<<<< HEAD
                   <div className={`w-12 h-1 rounded ${['service', 'datetime', 'form'].indexOf(step) > i
                     ? 'bg-primary'
                     : 'bg-muted'
                     }`} />
-=======
-                  <div
-                    className={`w-12 h-1 rounded ${
-                      ['type', 'datetime', 'form'].indexOf(step) > i
-                        ? 'bg-primary'
-                        : 'bg-muted'
-                    }`}
-                  />
->>>>>>> bc8d421ec2458693cc292b982902705ef57900ae
                 )}
               </div>
             ))}
@@ -351,14 +292,7 @@ const Booking = () => {
               </div>
             </Card>
 
-            <ClientForm 
-              onSubmit={handleFormSubmit} 
-              isLoading={isLoading}
-              defaultValues={{
-                name: profile?.full_name || '',
-                email: user.email || '',
-              }}
-            />
+            <ClientForm onSubmit={handleFormSubmit} isLoading={isLoading} />
           </div>
         )}
 
@@ -372,11 +306,7 @@ const Booking = () => {
             <div>
               <h1 className="text-3xl font-bold mb-4">Agendamento Confirmado!</h1>
               <p className="text-muted-foreground">
-<<<<<<< HEAD
                 Seu agendamento em <strong>{appointmentDetails.companyName}</strong> foi realizado.
-=======
-                Seu agendamento foi realizado com sucesso.
->>>>>>> bc8d421ec2458693cc292b982902705ef57900ae
               </p>
             </div>
 
@@ -384,15 +314,8 @@ const Booking = () => {
               <h3 className="font-semibold mb-4 text-primary">Comprovante</h3>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
-<<<<<<< HEAD
                   <span className="text-muted-foreground">Serviço:</span>
                   <span className="font-medium">{appointmentDetails.service}</span>
-=======
-                  <span className="text-muted-foreground">Tipo de Visita:</span>
-                  <span className="font-medium">
-                    {VISIT_TYPE_INFO[appointmentDetails.visitType].label}
-                  </span>
->>>>>>> bc8d421ec2458693cc292b982902705ef57900ae
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Data:</span>
