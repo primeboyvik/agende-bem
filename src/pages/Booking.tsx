@@ -7,21 +7,19 @@ import { CalendarPicker } from '@/components/scheduling/CalendarPicker';
 import { TimeSlotPicker } from '@/components/scheduling/TimeSlotPicker';
 import { ClientForm, ClientFormData } from '@/components/scheduling/ClientForm';
 import { useScheduling } from '@/hooks/useScheduling';
+import { useAuth } from '@/hooks/useAuth';
 import { VisitType, TimeSlot, VISIT_TYPE_INFO } from '@/types/scheduling';
-import { ArrowLeft, Zap, CheckCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import Logo from '@/Logo.png';
 
 type Step = 'type' | 'datetime' | 'form' | 'success';
-
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
-import Logo from '@/Logo.png';
 
 const Booking = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { user, profile, isLoading: authLoading } = useAuth();
   const { getAvailableDays, generateTimeSlots, createAppointment, isLoading } = useScheduling();
 
   const [step, setStep] = useState<Step>('type');
@@ -40,26 +38,19 @@ const Booking = () => {
     }
   }, [searchParams]);
 
-  // Protect route
+  // Protect route - redirect to login if not authenticated
   useEffect(() => {
-    // Mock Auth Check
-    const mockSession = localStorage.getItem("mock_session");
-    if (!mockSession) {
-      toast({
-        title: "Login necessário",
-        description: "Por favor, faça login para continuar o agendamento.",
-        variant: "default",
-      });
+    if (!authLoading && !user) {
       navigate("/perfil?returnUrl=/agendar");
     }
-  }, [navigate]);
+  }, [authLoading, user, navigate]);
 
   // Load time slots when date changes
   useEffect(() => {
     if (selectedDate) {
       generateTimeSlots(selectedDate).then(setTimeSlots);
     }
-  }, [selectedDate]);
+  }, [selectedDate, generateTimeSlots]);
 
   const handleSelectType = (type: VisitType) => {
     setVisitType(type);
@@ -106,6 +97,20 @@ const Booking = () => {
 
   const availableDays = getAvailableDays();
 
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -131,20 +136,24 @@ const Booking = () => {
             {['type', 'datetime', 'form'].map((s, i) => (
               <div key={s} className="flex items-center gap-2">
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === s
-                    ? 'bg-gradient-electric text-white shadow-electric'
-                    : ['type', 'datetime', 'form'].indexOf(step) > i
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    step === s
+                      ? 'bg-gradient-electric text-white shadow-electric'
+                      : ['type', 'datetime', 'form'].indexOf(step) > i
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted text-muted-foreground'
-                    }`}
+                  }`}
                 >
                   {i + 1}
                 </div>
                 {i < 2 && (
-                  <div className={`w-12 h-1 rounded ${['type', 'datetime', 'form'].indexOf(step) > i
-                    ? 'bg-primary'
-                    : 'bg-muted'
-                    }`} />
+                  <div
+                    className={`w-12 h-1 rounded ${
+                      ['type', 'datetime', 'form'].indexOf(step) > i
+                        ? 'bg-primary'
+                        : 'bg-muted'
+                    }`}
+                  />
                 )}
               </div>
             ))}
@@ -254,7 +263,14 @@ const Booking = () => {
               </div>
             </Card>
 
-            <ClientForm onSubmit={handleFormSubmit} isLoading={isLoading} />
+            <ClientForm 
+              onSubmit={handleFormSubmit} 
+              isLoading={isLoading}
+              defaultValues={{
+                name: profile?.full_name || '',
+                email: user.email || '',
+              }}
+            />
           </div>
         )}
 
@@ -268,7 +284,7 @@ const Booking = () => {
             <div>
               <h1 className="text-3xl font-bold mb-4">Agendamento Confirmado!</h1>
               <p className="text-muted-foreground">
-                Seu agendamento foi realizado com sucesso. Você receberá uma confirmação por email.
+                Seu agendamento foi realizado com sucesso.
               </p>
             </div>
 
@@ -277,7 +293,9 @@ const Booking = () => {
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Tipo de Visita:</span>
-                  <span className="font-medium">{VISIT_TYPE_INFO[appointmentDetails.visitType].label}</span>
+                  <span className="font-medium">
+                    {VISIT_TYPE_INFO[appointmentDetails.visitType].label}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Data:</span>

@@ -20,15 +20,22 @@ export type ClientFormData = z.infer<typeof clientFormSchema>;
 interface ClientFormProps {
   onSubmit: (data: ClientFormData) => void;
   isLoading?: boolean;
+  defaultValues?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    notes?: string;
+  };
 }
 
-export function ClientForm({ onSubmit, isLoading }: ClientFormProps) {
+export function ClientForm({ onSubmit, isLoading, defaultValues }: ClientFormProps) {
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<ClientFormData>({
     resolver: zodResolver(clientFormSchema),
+    defaultValues,
   });
 
   return (
