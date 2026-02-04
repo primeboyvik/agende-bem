@@ -16,8 +16,7 @@ export function useScheduling() {
       const { data, error } = await supabase
         .from('available_slots')
         .select('*')
-        .eq('is_active', true)
-        .in('day_of_week', [2, 4]);
+        .eq('is_active', true);
 
       if (error) {
         console.error('Error fetching slots:', error);

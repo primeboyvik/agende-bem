@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Appointment, Client, VISIT_TYPE_INFO, DAY_NAMES } from '@/types/scheduling';
+import { Client, VISIT_TYPE_INFO, DAY_NAMES } from '@/types/scheduling';
 import {
   Zap,
   Calendar,
@@ -19,107 +20,111 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  ShieldAlert,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Logo from '@/Logo.png';
 
-type Database = {
-  public: {
-    Tables: {
-      appointments: {
-        Row: Appointment;
-      };
-      clients: {
-        Row: Client;
-      };
-    };
-  };
-};
-
 const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { user, isAdmin, isLoading: authLoading, signIn, signOut } = useAuth();
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [authLoading, setAuthLoading] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [dataLoading, setDataLoading] = useState(false);
 
-  // Check auth state
+  const fetchData = useCallback(async () => {
+    if (!isAdmin) return;
+    
+    setDataLoading(true);
+    
+    try {
+      // Fetch appointments with client data
+      const { data: appointmentsData, error: aptError } = await supabase
+        .from('appointments')
+        .select(`
+          *,
+          client:clients(*)
+        `)
+        .order('appointment_date', { ascending: true })
+        .order('appointment_time', { ascending: true });
+
+      if (aptError) throw aptError;
+      setAppointments(appointmentsData || []);
+
+      // Fetch clients
+      const { data: clientsData, error: clientError } = await supabase
+        .from('clients')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (clientError) throw clientError;
+      setClients(clientsData || []);
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao carregar dados',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setDataLoading(false);
+    }
+  }, [isAdmin, toast]);
+
+  // Fetch data when admin is confirmed
   useEffect(() => {
-    const checkAuth = () => {
-      const mockSession = localStorage.getItem("mock_session");
-      setIsAuthenticated(!!mockSession);
-      setIsLoading(false);
-
-      if (mockSession) {
-        fetchData();
-      }
-    };
-
-    checkAuth();
-  }, []);
-
-  const fetchData = async () => {
-    // Keep real fetch or mock it? User said "autenticação real" not needed.
-    // We will keep real fetch for now as it might assume public access or we don't care about data privacy for simulation.
-    // If it fails due to RLS, that's expected for "simulation" if we don't fix RLS, but let's try to keep it.
-
-    // Fetch appointments with client data
-    const { data: appointmentsData } = await supabase
-      .from('appointments')
-      .select(`
-        *,
-        client:clients(*)
-      `)
-      .order('appointment_date', { ascending: true })
-      .order('appointment_time', { ascending: true });
-
-    setAppointments(appointmentsData || []);
-
-    // Fetch clients
-    const { data: clientsData } = await supabase
-      .from('clients')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    setClients(clientsData || []);
-  };
+    if (isAdmin) {
+      fetchData();
+    }
+  }, [isAdmin, fetchData]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthLoading(true);
+    setLoginLoading(true);
 
-    // Mock Login
-    setTimeout(() => {
-      localStorage.setItem("mock_session", "true");
-      localStorage.setItem("user_email", email);
-      setIsAuthenticated(true);
-      fetchData(); // Load data after login
-
+    try {
+      await signIn(email, password);
       toast({
         title: 'Bem-vindo!',
-        description: 'Login realizado com sucesso (Simulação).',
+        description: 'Login realizado com sucesso.',
       });
-      setAuthLoading(false);
-    }, 1000);
+    } catch (error: any) {
+      toast({
+        title: 'Erro no login',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoginLoading(false);
+    }
   };
 
   const handleLogout = async () => {
-    localStorage.removeItem("mock_session");
-    localStorage.removeItem("user_email");
-    setIsAuthenticated(false);
-    toast({
-      title: 'Até logo!',
-      description: 'Você saiu do sistema.',
-    });
+    try {
+      await signOut();
+      toast({
+        title: 'Até logo!',
+        description: 'Você saiu do sistema.',
+      });
+      navigate('/');
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível sair.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const updateAppointmentStatus = async (id: string, status: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
-    // ... Mock or real update? Let's try real first, ignoring RLS for now or assuming public.
+  const updateAppointmentStatus = async (
+    id: string, 
+    status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
+  ) => {
     const { error } = await supabase
       .from('appointments')
       .update({ status })
@@ -155,7 +160,8 @@ const Admin = () => {
     }
   };
 
-  if (isLoading) {
+  // Loading state
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -163,8 +169,8 @@ const Admin = () => {
     );
   }
 
-  // Login Screen
-  if (!isAuthenticated) {
+  // Login Screen - show if not logged in
+  if (!user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <Card className="w-full max-w-md p-8 border-2 border-border/50">
@@ -205,12 +211,10 @@ const Admin = () => {
 
             <Button
               type="submit"
-              disabled={authLoading}
+              disabled={loginLoading}
               className="w-full bg-gradient-electric hover:opacity-90"
             >
-              {authLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : null}
+              {loginLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               Entrar
             </Button>
           </form>
@@ -218,6 +222,32 @@ const Admin = () => {
           <div className="mt-6 text-center">
             <Link to="/" className="text-sm text-muted-foreground hover:text-primary">
               ← Voltar ao site
+            </Link>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // Access Denied - logged in but not admin
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <Card className="w-full max-w-md p-8 border-2 border-destructive/50 text-center">
+          <ShieldAlert className="w-16 h-16 text-destructive mx-auto mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Acesso Negado</h1>
+          <p className="text-muted-foreground mb-6">
+            Você não tem permissão para acessar o painel administrativo.
+          </p>
+          <div className="flex flex-col gap-4">
+            <Button variant="outline" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Sair
+            </Button>
+            <Link to="/">
+              <Button variant="ghost" className="w-full">
+                Voltar ao site
+              </Button>
             </Link>
           </div>
         </Card>
@@ -244,165 +274,172 @@ const Admin = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        <Tabs defaultValue="appointments" className="space-y-8">
-          <TabsList className="grid w-full max-w-md grid-cols-3">
-            <TabsTrigger value="appointments" className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              Agendamentos
-            </TabsTrigger>
-            <TabsTrigger value="clients" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Clientes
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings className="w-4 h-4" />
-              Config
-            </TabsTrigger>
-          </TabsList>
+        {dataLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <Tabs defaultValue="appointments" className="space-y-8">
+            <TabsList className="grid w-full max-w-md grid-cols-3">
+              <TabsTrigger value="appointments" className="flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                Agendamentos
+              </TabsTrigger>
+              <TabsTrigger value="clients" className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Clientes
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                Config
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Appointments Tab */}
-          <TabsContent value="appointments" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Agendamentos</h2>
-              <Badge variant="outline" className="text-sm">
-                {appointments.length} agendamentos
-              </Badge>
-            </div>
+            {/* Appointments Tab */}
+            <TabsContent value="appointments" className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold">Agendamentos</h2>
+                <Badge variant="outline" className="text-sm">
+                  {appointments.length} agendamentos
+                </Badge>
+              </div>
 
-            {appointments.length === 0 ? (
-              <Card className="p-12 text-center">
-                <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                <p className="text-muted-foreground">Nenhum agendamento ainda</p>
-              </Card>
-            ) : (
-              <div className="grid gap-4">
-                {appointments.map((apt) => (
-                  <Card key={apt.id} className="p-4 border-2 border-border/50">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-semibold">{apt.client?.name || 'Cliente'}</h3>
-                          {getStatusBadge(apt.status)}
-                          <Badge
-                            variant="secondary"
-                            className={
-                              apt.visit_type === 'inspiracao'
-                                ? 'bg-secondary/20 text-secondary-foreground'
-                                : 'bg-accent/20 text-accent-foreground'
-                            }
-                          >
-                            {VISIT_TYPE_INFO[apt.visit_type as keyof typeof VISIT_TYPE_INFO]?.label}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            {format(parseISO(apt.appointment_date), "dd/MM/yyyy")}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-4 h-4" />
-                            {apt.appointment_time.slice(0, 5)}
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {apt.client?.email} {apt.client?.phone && `• ${apt.client.phone}`}
-                        </p>
-                        {apt.notes && (
-                          <p className="text-sm bg-muted/50 p-2 rounded">
-                            {apt.notes}
+              {appointments.length === 0 ? (
+                <Card className="p-12 text-center">
+                  <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+                  <p className="text-muted-foreground">Nenhum agendamento ainda</p>
+                </Card>
+              ) : (
+                <div className="grid gap-4">
+                  {appointments.map((apt) => (
+                    <Card key={apt.id} className="p-4 border-2 border-border/50">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-3">
+                            <h3 className="font-semibold">{apt.client?.name || 'Cliente'}</h3>
+                            {getStatusBadge(apt.status)}
+                            <Badge
+                              variant="secondary"
+                              className={
+                                apt.visit_type === 'inspiracao'
+                                  ? 'bg-secondary/20 text-secondary-foreground'
+                                  : 'bg-accent/20 text-accent-foreground'
+                              }
+                            >
+                              {VISIT_TYPE_INFO[apt.visit_type as keyof typeof VISIT_TYPE_INFO]?.label}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-4 h-4" />
+                              {format(parseISO(apt.appointment_date), "dd/MM/yyyy")}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-4 h-4" />
+                              {apt.appointment_time.slice(0, 5)}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {apt.client?.email} {apt.client?.phone && `• ${apt.client.phone}`}
                           </p>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        {apt.status === 'pending' && (
-                          <>
+                          {apt.notes && (
+                            <p className="text-sm bg-muted/50 p-2 rounded">{apt.notes}</p>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          {apt.status === 'pending' && (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => updateAppointmentStatus(apt.id, 'confirmed')}
+                                className="bg-primary"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-1" />
+                                Confirmar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => updateAppointmentStatus(apt.id, 'cancelled')}
+                              >
+                                <XCircle className="w-4 h-4 mr-1" />
+                                Cancelar
+                              </Button>
+                            </>
+                          )}
+                          {apt.status === 'confirmed' && (
                             <Button
                               size="sm"
-                              onClick={() => updateAppointmentStatus(apt.id, 'confirmed')}
-                              className="bg-primary"
+                              onClick={() => updateAppointmentStatus(apt.id, 'completed')}
+                              className="bg-secondary hover:bg-secondary/90 text-secondary-foreground"
                             >
                               <CheckCircle className="w-4 h-4 mr-1" />
-                              Confirmar
+                              Concluir
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => updateAppointmentStatus(apt.id, 'cancelled')}
-                            >
-                              <XCircle className="w-4 h-4 mr-1" />
-                              Cancelar
-                            </Button>
-                          </>
-                        )}
-                        {apt.status === 'confirmed' && (
-                          <Button
-                            size="sm"
-                            onClick={() => updateAppointmentStatus(apt.id, 'completed')}
-                            className="bg-secondary hover:bg-secondary/90 text-secondary-foreground"
-                          >
-                            <CheckCircle className="w-4 h-4 mr-1" />
-                            Concluir
-                          </Button>
-                        )}
+                          )}
+                        </div>
                       </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Clients Tab */}
+            <TabsContent value="clients" className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold">Clientes</h2>
+                <Badge variant="outline" className="text-sm">
+                  {clients.length} clientes
+                </Badge>
+              </div>
+
+              {clients.length === 0 ? (
+                <Card className="p-12 text-center">
+                  <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+                  <p className="text-muted-foreground">Nenhum cliente cadastrado</p>
+                </Card>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {clients.map((client) => (
+                    <Card key={client.id} className="p-4 border-2 border-border/50">
+                      <h3 className="font-semibold">{client.name}</h3>
+                      <p className="text-sm text-muted-foreground">{client.email}</p>
+                      {client.phone && (
+                        <p className="text-sm text-muted-foreground">{client.phone}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Desde {format(parseISO(client.created_at), "dd/MM/yyyy")}
+                      </p>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Settings Tab */}
+            <TabsContent value="settings" className="space-y-4">
+              <h2 className="text-2xl font-bold">Configurações</h2>
+              <Card className="p-6 border-2 border-border/50">
+                <h3 className="font-semibold mb-4">Horários de Atendimento</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Os horários padrão estão configurados para Segunda a Sexta, das 09:00 às 18:00.
+                </p>
+                <div className="grid gap-2">
+                  {[1, 2, 3, 4, 5].map((day) => (
+                    <div
+                      key={day}
+                      className="flex items-center justify-between py-2 border-b border-border/50 last:border-0"
+                    >
+                      <span className="font-medium">{DAY_NAMES[day]}</span>
+                      <span className="text-muted-foreground">09:00 - 18:00</span>
                     </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Clients Tab */}
-          <TabsContent value="clients" className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Clientes</h2>
-              <Badge variant="outline" className="text-sm">
-                {clients.length} clientes
-              </Badge>
-            </div>
-
-            {clients.length === 0 ? (
-              <Card className="p-12 text-center">
-                <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                <p className="text-muted-foreground">Nenhum cliente cadastrado</p>
+                  ))}
+                </div>
               </Card>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {clients.map((client) => (
-                  <Card key={client.id} className="p-4 border-2 border-border/50">
-                    <h3 className="font-semibold">{client.name}</h3>
-                    <p className="text-sm text-muted-foreground">{client.email}</p>
-                    {client.phone && (
-                      <p className="text-sm text-muted-foreground">{client.phone}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Desde {format(parseISO(client.created_at), "dd/MM/yyyy")}
-                    </p>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Settings Tab */}
-          <TabsContent value="settings" className="space-y-4">
-            <h2 className="text-2xl font-bold">Configurações</h2>
-            <Card className="p-6 border-2 border-border/50">
-              <h3 className="font-semibold mb-4">Horários de Atendimento</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Os horários padrão estão configurados para Segunda a Sexta, das 09:00 às 18:00.
-              </p>
-              <div className="grid gap-2">
-                {[1, 2, 3, 4, 5].map((day) => (
-                  <div key={day} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
-                    <span className="font-medium">{DAY_NAMES[day]}</span>
-                    <span className="text-muted-foreground">09:00 - 18:00</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+          </Tabs>
+        )}
       </main>
     </div>
   );
