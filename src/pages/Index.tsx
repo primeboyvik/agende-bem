@@ -11,40 +11,54 @@ const Index = () => {
         <div className="absolute inset-0 bg-gradient-electric opacity-5" />
         <div className="absolute top-20 left-10 w-72 h-72 bg-electric-cyan/20 rounded-full blur-3xl" />
         <div className="absolute bottom-10 right-10 w-96 h-96 bg-electric-blue/20 rounded-full blur-3xl" />
-        
+
         <nav className="relative z-10 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-gradient-electric rounded-lg shadow-electric">
-              <Zap className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-xl font-bold text-gradient-electric">AgendaElectric</span>
+            <img src="" alt="Logo_Boo" />
+            <span className="text-2xl font-bold text-gradient-electric">Boo</span>
           </div>
-          <Link to="/admin">
-            <Button variant="outline" size="sm">
-              Área Admin
-            </Button>
-          </Link>
+          <div className="flex gap-4">
+            <Link to="/admin">
+              <Button className="text-white font-bold bg-[#0091FF] hover:bg-[#7daaff]" variant="outline" size="sm">
+                Área Admin
+              </Button>
+            </Link>
+            <Link to="/perfil">
+              <Button className="text-foreground font-bold hover:bg-muted" variant="ghost" size="sm">
+                Perfil
+              </Button>
+            </Link>
+          </div>
         </nav>
 
-        <div className="relative z-10 max-w-4xl mx-auto px-6 py-20 text-center">
+        <div className="relative z-10 max-w-4xl mx-auto px-6 py-20 text-left">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-8">
             <Sparkles className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-primary">Sistema de Agendamento Online</span>
           </div>
-          
+
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            Agende sua{' '}
-            <span className="text-gradient-electric">visita</span>
-            {' '}de forma simples
+            Quer{' '}
+            <span className="text-gradient-electric">melhorar</span>
+            <br />
+            sua gestão de{''}
+            <span className="text-gradient-electric">tempo?</span>
+
+            {' '}<br />
+
+            <span className="text-gradient-electric">Pick a Boo!</span> 
           </h1>
-          
-          <p className="text-lg text-muted-foreground mb-12 max-w-2xl mx-auto">
-            Escolha o tipo de experiência que deseja vivenciar e reserve seu horário 
-            em poucos cliques. Rápido, fácil e sem complicações.
+
+          <p className="text-lg text-muted-foreground mb-12 max-w-2xl">
+            O seu gerenciamento de tempo de uma forma que você nunca viu. Coordene, coopere e organize seu ecossistema!
+            <br />
+            <br />
+            Vem ser feliz com a gente!
+
           </p>
 
           <Link to="/agendar">
-            <Button size="lg" className="bg-gradient-electric hover:opacity-90 text-primary-foreground font-semibold px-8 py-6 text-lg shadow-electric group">
+            <Button size="lg" className="bg-[#006abb] hover:opacity-90 text-primary-foreground font-semibold px-8 py-6 text-lg shadow-electric group">
               Agendar Agora
               <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>

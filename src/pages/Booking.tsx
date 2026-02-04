@@ -64,7 +64,7 @@ const Booking = () => {
     };
 
     const success = await createAppointment(visitType, selectedDate, selectedTime, clientData);
-    
+
     if (success) {
       setAppointmentDetails({
         ...clientData,
@@ -98,7 +98,7 @@ const Booking = () => {
             </div>
             <span className="text-lg font-bold text-gradient-electric">AgendaElectric</span>
           </Link>
-          
+
           {step !== 'success' && step !== 'type' && (
             <Button variant="ghost" size="sm" onClick={handleBack}>
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -115,22 +115,20 @@ const Booking = () => {
             {['type', 'datetime', 'form'].map((s, i) => (
               <div key={s} className="flex items-center gap-2">
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                    step === s
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === s
                       ? 'bg-gradient-electric text-white shadow-electric'
                       : ['type', 'datetime', 'form'].indexOf(step) > i
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground'
+                    }`}
                 >
                   {i + 1}
                 </div>
                 {i < 2 && (
-                  <div className={`w-12 h-1 rounded ${
-                    ['type', 'datetime', 'form'].indexOf(step) > i
+                  <div className={`w-12 h-1 rounded ${['type', 'datetime', 'form'].indexOf(step) > i
                       ? 'bg-primary'
                       : 'bg-muted'
-                  }`} />
+                    }`} />
                 )}
               </div>
             ))}
@@ -189,7 +187,7 @@ const Booking = () => {
 
               <div>
                 <h3 className="text-lg font-semibold mb-4">Selecione o Horário</h3>
-                <Card className="p-6 border-2 border-border/50">
+                <Card className="p-6 border-none bg-card/50 shadow-none sm:border-2 sm:border-border/50 sm:shadow-electric rounded-2xl">
                   <TimeSlotPicker
                     slots={timeSlots}
                     selectedTime={selectedTime}

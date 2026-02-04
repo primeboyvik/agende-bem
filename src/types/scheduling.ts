@@ -41,13 +41,13 @@ export interface TimeSlot {
 export const VISIT_TYPE_INFO = {
   inspiracao: {
     label: 'Visita Inspiração',
-    description: 'Uma experiência para despertar novas ideias e perspectivas',
+    description: 'Duração de 2 horas, onde você irá explorar as estruturas do Ágora e conhecer os projetos estruturantes do Ágora Tech Park.',
     icon: 'Lightbulb',
     color: 'secondary',
   },
   conexoes: {
     label: 'Visita Conexões',
-    description: 'Fortaleça relacionamentos e crie novas oportunidades',
+    description: 'Duração de 1 dia (8 horas), além de conhecer todos os projetos e estruturas do Ágora Tech Park, você irá se conectar com os negócios inovadores de forma qualificada. O valor investido no Ágora Tour Conexões é direcionado para o desenvolvimento dos universitários participantes do projeto Liga Ágora, além da administração do programa.',
     icon: 'Users',
     color: 'accent',
   },

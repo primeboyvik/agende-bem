@@ -16,7 +16,8 @@ export function useScheduling() {
       const { data, error } = await supabase
         .from('available_slots')
         .select('*')
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .in('day_of_week', [2, 4]);
 
       if (error) {
         console.error('Error fetching slots:', error);
@@ -41,7 +42,7 @@ export function useScheduling() {
 
     // Get slot configuration for this day
     const daySlots = availableSlots.filter((slot) => slot.day_of_week === dayOfWeek);
-    
+
     if (daySlots.length === 0) {
       return [];
     }
@@ -59,7 +60,7 @@ export function useScheduling() {
 
     // Generate time slots (1 hour intervals)
     const slots: TimeSlot[] = [];
-    
+
     for (const daySlot of daySlots) {
       const startHour = parseInt(daySlot.start_time.split(':')[0]);
       const endHour = parseInt(daySlot.end_time.split(':')[0]);
