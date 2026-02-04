@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { TimeSlotPicker } from '@/components/scheduling/TimeSlotPicker';
 import { ClientForm, ClientFormData } from '@/components/scheduling/ClientForm';
+import { useAuth } from '@/hooks/useAuth';
+
 import { useScheduling } from '@/hooks/useScheduling';
 import { TimeSlot } from '@/types/scheduling';
 import { ArrowLeft, CheckCircle, MapPin, Star } from 'lucide-react';
@@ -21,6 +23,7 @@ const Booking = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { generateTimeSlots, createAppointment, isLoading } = useScheduling();
+  const { user, isLoading: authLoading } = useAuth(); // Use useAuth hook
 
   const companyId = searchParams.get('company');
   const [company, setCompany] = useState<Company | null>(null);
@@ -47,8 +50,7 @@ const Booking = () => {
 
   // Protect route
   useEffect(() => {
-    const mockSession = localStorage.getItem("mock_session");
-    if (!mockSession) {
+    if (!authLoading && !user) {
       toast({
         title: "Login necessário",
         description: "Por favor, faça login para continuar o agendamento.",
@@ -56,7 +58,7 @@ const Booking = () => {
       });
       navigate(`/perfil?returnUrl=/agendar${companyId ? `?company=${companyId}` : ''}`);
     }
-  }, [navigate, companyId]);
+  }, [user, authLoading, navigate, companyId]);
 
   // Load time slots when date changes
   useEffect(() => {
