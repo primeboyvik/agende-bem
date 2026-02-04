@@ -1,7 +1,8 @@
 
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Menu } from 'lucide-react';
+import { Menu, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import {
     Sheet,
     SheetContent,
@@ -11,11 +12,12 @@ import { useState, useEffect } from 'react';
 import Logo from '@/Logo.png';
 
 export const Navbar = () => {
+    const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [userPhoto, setUserPhoto] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState("");
 
-    // Mock Auth Check
     // Mock Auth Check
     useEffect(() => {
         const checkAuth = () => {
@@ -26,12 +28,17 @@ export const Navbar = () => {
 
         checkAuth();
 
-        // Listen for storage events (e.g. login/logout in other tabs or components)
         window.addEventListener('storage', checkAuth);
-
-        // Custom event for same-tab updates if we implemented that, but storage is good for now or manual reload
         return () => window.removeEventListener('storage', checkAuth);
     }, []);
+
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (searchQuery.trim()) {
+            navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+            setIsOpen(false); // Close mobile sheet if open
+        }
+    };
 
     const ProfileTrigger = () => {
         if (isLoggedIn) {
@@ -55,10 +62,25 @@ export const Navbar = () => {
     };
 
     return (
-        <nav className="rounded-full bg-slate-200 mt-5 w-[95%] md:w-[60%] mx-auto drop-shadow-xl relative z-50 flex items-center justify-between px-6 py-3 max-w-7xl">
-            <div className="flex items-center gap-2">
+        <nav className="rounded-full bg-slate-200 mt-5 w-[95%] md:w-[80%] mx-auto drop-shadow-xl relative z-50 flex items-center justify-between px-6 py-3 max-w-7xl">
+            <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate(isLoggedIn ? "/dashboard" : "/")}>
                 <img src={Logo} alt="Logo_Boo" className="h-8 w-auto" />
                 <span className="text-2xl font-bold text-gradient-electric"></span>
+            </div>
+
+            {/* Scale up width to accommodate search bar */}
+
+            {/* Search Bar - Desktop */}
+            <div className="hidden md:flex flex-1 max-w-md mx-8">
+                <form onSubmit={handleSearch} className="relative w-full">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Buscar estabelecimentos..."
+                        className="pl-9 bg-white/50 border-transparent focus:bg-white transition-all rounded-full h-10"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </form>
             </div>
 
             {/* Desktop Navigation */}
@@ -74,7 +96,7 @@ export const Navbar = () => {
             </div>
 
             {/* Mobile Navigation */}
-            <div className="md:hidden">
+            <div className="md:hidden flex items-center gap-2">
                 <Sheet open={isOpen} onOpenChange={setIsOpen}>
                     <SheetTrigger asChild>
                         <Button variant="ghost" size="icon" className="text-primary hover:bg-transparent">
@@ -86,6 +108,17 @@ export const Navbar = () => {
                             <div className="flex items-center gap-2 mb-4">
                                 <span className="text-2xl font-bold text-gradient-electric">Boo</span>
                             </div>
+
+                            <form onSubmit={(e) => { handleSearch(e); setIsOpen(false); }} className="relative w-full">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Buscar..."
+                                    className="pl-9 bg-muted/50"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                />
+                            </form>
+
                             <Link to="/admin" onClick={() => setIsOpen(false)}>
                                 <Button className="w-full text-white font-bold bg-[#0091FF] hover:bg-[#7daaff]" variant="outline">
                                     Área Admin
