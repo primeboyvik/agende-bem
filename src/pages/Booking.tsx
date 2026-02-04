@@ -14,9 +14,13 @@ import { ptBR } from 'date-fns/locale';
 
 type Step = 'type' | 'datetime' | 'form' | 'success';
 
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+
 const Booking = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { getAvailableDays, generateTimeSlots, createAppointment, isLoading } = useScheduling();
 
   const [step, setStep] = useState<Step>('type');
@@ -34,6 +38,20 @@ const Booking = () => {
       setStep('datetime');
     }
   }, [searchParams]);
+
+  // Protect route
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        toast({
+          title: "Login necessário",
+          description: "Por favor, faça login para continuar o agendamento.",
+          variant: "default",
+        });
+        navigate("/perfil?returnUrl=/agendar");
+      }
+    });
+  }, [navigate]);
 
   // Load time slots when date changes
   useEffect(() => {
@@ -116,18 +134,18 @@ const Booking = () => {
               <div key={s} className="flex items-center gap-2">
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === s
-                      ? 'bg-gradient-electric text-white shadow-electric'
-                      : ['type', 'datetime', 'form'].indexOf(step) > i
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground'
+                    ? 'bg-gradient-electric text-white shadow-electric'
+                    : ['type', 'datetime', 'form'].indexOf(step) > i
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground'
                     }`}
                 >
                   {i + 1}
                 </div>
                 {i < 2 && (
                   <div className={`w-12 h-1 rounded ${['type', 'datetime', 'form'].indexOf(step) > i
-                      ? 'bg-primary'
-                      : 'bg-muted'
+                    ? 'bg-primary'
+                    : 'bg-muted'
                     }`} />
                 )}
               </div>

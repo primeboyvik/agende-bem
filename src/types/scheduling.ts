@@ -44,7 +44,7 @@ export const VISIT_TYPE_INFO = {
     description: 'Duração de 2 horas, onde você irá explorar as estruturas do Ágora e conhecer os projetos estruturantes do Ágora Tech Park.',
     icon: 'Lightbulb',
     color: 'secondary',
-    price: undefined,
+    price: 'R$ 00,00',
   },
   conexoes: {
     label: 'Visita Conexões',

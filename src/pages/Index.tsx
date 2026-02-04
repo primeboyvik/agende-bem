@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { VisitTypeCard } from '@/components/scheduling/VisitTypeCard';
 import { Navbar } from '@/components/Navbar';
+import { PricingSection } from '@/components/landing/PricingSection';
 import { Calendar, Sparkles, ArrowRight, Zap } from 'lucide-react';
 
 const Index = () => {
@@ -134,6 +135,9 @@ const Index = () => {
           </div>
         </div>
       </section>
+
+      {/* Pricing Section */}
+      <PricingSection />
 
       {/* Footer */}
       <footer className="py-8 px-6 border-t border-border">
