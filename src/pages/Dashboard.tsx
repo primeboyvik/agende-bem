@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Calendar, Clock, MapPin, User, Building2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Navbar } from "@/components/Navbar";
 
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -86,43 +87,46 @@ export default function Dashboard() {
     );
 
     return (
-        <div className="min-h-screen bg-background p-6 pt-24">
-            <div className="max-w-4xl mx-auto space-y-8">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-600">
-                            Olá, {userName}!
-                        </h1>
-                        <p className="text-muted-foreground mt-1">
-                            Aqui está o resumo do seu dia.
-                        </p>
-                    </div>
-                    <Button onClick={() => navigate("/agendar")} className="bg-primary hover:bg-primary/90">
-                        Novo Agendamento
-                    </Button>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-6">
-                    {(userType === "empresa" || userType === "prestador") ? (
-                        <MockCommitment />
-                    ) : (
-                        <MockAppointment />
-                    )}
-
-                    {/* Stats or Quick Actions Card */}
-                    <Card className="p-6 border-none shadow-sm bg-white/50 backdrop-blur-sm">
-                        <h3 className="text-xl font-semibold mb-4">Acesso Rápido</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <Button variant="ghost" className="h-auto py-4 flex flex-col gap-2 border border-border/50 hover:bg-primary/5 hover:border-primary/50 transition-all">
-                                <User className="w-8 h-8 text-primary" />
-                                <span>Meu Perfil</span>
-                            </Button>
-                            <Button variant="ghost" className="h-auto py-4 flex flex-col gap-2 border border-border/50 hover:bg-primary/5 hover:border-primary/50 transition-all">
-                                <Clock className="w-8 h-8 text-primary" />
-                                <span>Histórico</span>
-                            </Button>
+        <div className="min-h-screen bg-background">
+            <Navbar />
+            <div className="p-6 pt-10">
+                <div className="max-w-4xl mx-auto space-y-8">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-600">
+                                Olá, {userName}!
+                            </h1>
+                            <p className="text-muted-foreground mt-1">
+                                Aqui está o resumo do seu dia.
+                            </p>
                         </div>
-                    </Card>
+                        <Button onClick={() => navigate("/agendar")} className="bg-primary hover:bg-primary/90">
+                            Novo Agendamento
+                        </Button>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-6">
+                        {(userType === "empresa" || userType === "prestador") ? (
+                            <MockCommitment />
+                        ) : (
+                            <MockAppointment />
+                        )}
+
+                        {/* Stats or Quick Actions Card */}
+                        <Card className="p-6 border-none shadow-sm bg-white/50 backdrop-blur-sm">
+                            <h3 className="text-xl font-semibold mb-4">Acesso Rápido</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <Button variant="ghost" className="h-auto py-4 flex flex-col gap-2 border border-border/50 hover:bg-primary/5 hover:border-primary/50 transition-all">
+                                    <User className="w-8 h-8 text-primary" />
+                                    <span>Meu Perfil</span>
+                                </Button>
+                                <Button variant="ghost" className="h-auto py-4 flex flex-col gap-2 border border-border/50 hover:bg-primary/5 hover:border-primary/50 transition-all">
+                                    <Clock className="w-8 h-8 text-primary" />
+                                    <span>Histórico</span>
+                                </Button>
+                            </div>
+                        </Card>
+                    </div>
                 </div>
             </div>
         </div>

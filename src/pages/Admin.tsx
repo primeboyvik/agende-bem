@@ -25,12 +25,13 @@ import {
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Logo from '@/Logo.png';
+import { Navbar } from '@/components/Navbar';
 
 const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, isAdmin, isLoading: authLoading, signIn, signOut } = useAuth();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
@@ -40,9 +41,9 @@ const Admin = () => {
 
   const fetchData = useCallback(async () => {
     if (!isAdmin) return;
-    
+
     setDataLoading(true);
-    
+
     try {
       // Fetch appointments with client data
       const { data: appointmentsData, error: aptError } = await supabase
@@ -122,7 +123,7 @@ const Admin = () => {
   };
 
   const updateAppointmentStatus = async (
-    id: string, 
+    id: string,
     status: 'pending' | 'confirmed' | 'completed' | 'cancelled'
   ) => {
     const { error } = await supabase
@@ -258,12 +259,12 @@ const Admin = () => {
   // Admin Dashboard
   return (
     <div className="min-h-screen bg-background">
+      <Navbar />
       {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src={Logo} alt="Admin Logo" className="h-8 w-auto" />
-            <span className="text-lg font-bold">Admin</span>
+            <span className="text-lg font-bold">Painel Admin</span>
           </div>
 
           <Button variant="ghost" size="sm" onClick={handleLogout}>

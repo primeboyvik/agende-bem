@@ -15,6 +15,7 @@ import { useToast } from '@/components/ui/use-toast';
 import Logo from '@/Logo.png';
 import { Calendar } from "@/components/ui/calendar";
 import { getCompanies, Company } from '@/data/mockCompanies';
+import { Navbar } from '@/components/Navbar';
 
 type Step = 'service' | 'datetime' | 'form' | 'success';
 
@@ -112,21 +113,17 @@ const Booking = () => {
 
   return (
     <div className="min-h-screen bg-background pb-12">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <img src={Logo} alt="Logo" className="h-8 w-auto" />
-          </Link>
+      <Navbar />
 
-          {step !== 'success' && step !== 'service' && (
-            <Button variant="ghost" size="sm" onClick={handleBack}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Voltar
-            </Button>
-          )}
+      {/* Back Button Sub-header */}
+      {step !== 'success' && step !== 'service' && (
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <Button variant="ghost" size="sm" onClick={handleBack}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Voltar
+          </Button>
         </div>
-      </header>
+      )}
 
       <main className="max-w-4xl mx-auto px-6 py-12">
         {/* Company Header Info (Only if company is loaded) */}

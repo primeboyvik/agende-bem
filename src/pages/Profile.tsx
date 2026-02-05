@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Logo from '@/Logo.png';
 import { supabase } from "@/integrations/supabase/client";
+import { Navbar } from "@/components/Navbar";
 
 type ProfileTab = "data" | "address" | "payment" | "services";
 
@@ -76,21 +77,23 @@ export default function Profile() {
   useEffect(() => {
     if (profile) {
       // Basic Profile
-      setFullName(profile.full_name || "");
-      // @ts-ignore - Assuming columns exist from SQL schema
-      setPhone(profile.phone || "");
+      setFullName(profile.full_name || user.user_metadata?.full_name || "");
+
+      // Load from Metadata (or Profile if exists in future schema)
       // @ts-ignore
-      setClientType(profile.user_type || "usuario");
+      setPhone(user.user_metadata?.phone || profile.phone || "");
       // @ts-ignore
-      setSex(profile.sex || "");
+      setClientType(user.user_metadata?.user_type || profile.user_type || "usuario");
       // @ts-ignore
-      setGender(profile.gender || "");
+      setSex(user.user_metadata?.sex || profile.sex || "");
       // @ts-ignore
-      setProfession(profile.profession || "");
+      setGender(user.user_metadata?.gender || profile.gender || "");
       // @ts-ignore
-      setCompanyName(profile.company_name || "");
+      setProfession(user.user_metadata?.profession || profile.profession || "");
       // @ts-ignore
-      setCnpj(profile.cnpj || "");
+      setCompanyName(user.user_metadata?.company_name || profile.company_name || "");
+      // @ts-ignore
+      setCnpj(user.user_metadata?.cnpj || profile.cnpj || "");
 
       // Fetch Sub-tables
       const fetchSubData = async () => {
@@ -146,25 +149,34 @@ export default function Profile() {
 
     try {
       // 1. Update Profile
-      const updates = {
+      // 1. Update Profile (Base Table)
+      const profileUpdates = {
         full_name: fullName,
-        phone,
-        user_type: clientType,
-        sex,
-        gender,
-        profession,
-        company_name: companyName,
-        cnpj,
         updated_at: new Date().toISOString(),
       };
 
       const { error: profileError } = await supabase
         .from('profiles')
-        .update(updates)
-        // @ts-ignore
+        .update(profileUpdates)
         .eq('user_id', user.id);
 
       if (profileError) throw profileError;
+
+      // 1.5 Update User Metadata (Extra Fields)
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: {
+          full_name: fullName, // Keep in sync
+          phone,
+          user_type: clientType,
+          sex,
+          gender,
+          profession,
+          company_name: companyName,
+          cnpj,
+        }
+      });
+
+      if (metadataError) throw metadataError;
 
       // 2. Services (Naive sync: upsert all local state)
       // Ideally we differentiate new vs update, but upsert with ID works if ID is preserved
@@ -422,11 +434,11 @@ export default function Profile() {
 
   // Profile View (Logged In)
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-background pb-6">
+      <Navbar />
+      <div className="max-w-6xl mx-auto mt-6 px-6">
         <header className="flex justify-between items-center mb-8 bg-white/50 p-4 rounded-xl shadow-sm backdrop-blur-sm">
-          <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate("/dashboard")}>
-            <img src={Logo} alt="Logo" className="h-8 w-auto" />
+          <div className="flex items-center gap-4">
             <span className="font-semibold text-lg">Minha Conta</span>
           </div>
           <div className="flex items-center gap-4">

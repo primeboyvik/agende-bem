@@ -1,7 +1,6 @@
-
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Menu, Search } from 'lucide-react';
+import { Pen, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
     Sheet,
@@ -10,6 +9,7 @@ import {
 } from '@/components/ui/sheet';
 import { useState, useEffect } from 'react';
 import Logo from '@/Logo.png';
+import Mascote from '@/Mascote_Boo.svg';
 
 export const Navbar = () => {
     const navigate = useNavigate();
@@ -63,8 +63,9 @@ export const Navbar = () => {
 
     return (
         <nav className="rounded-full bg-slate-200 mt-5 w-[95%] md:w-[80%] mx-auto drop-shadow-xl relative z-50 flex items-center justify-between px-6 py-3 max-w-7xl">
-            <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate(isLoggedIn ? "/dashboard" : "/")}>
-                <img src={Logo} alt="Logo_Boo" className="h-8 w-auto" />
+            <div className="flex items-center gap-4 cursor-pointer" onClick={() => navigate("/")}>
+                <img src={Mascote} alt="Mascote Boo" className="h-10 w-auto -mr-2" />
+                <img src={Logo} alt="Logo Boo" className="h-8 w-auto" />
                 <span className="text-2xl font-bold text-gradient-electric"></span>
             </div>
 
@@ -85,6 +86,11 @@ export const Navbar = () => {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-4">
+                <Link to="/dashboard">
+                    <Button variant="ghost" className="font-semibold">
+                        Dashboard
+                    </Button>
+                </Link>
                 <Link to="/admin">
                     <Button className="text-white font-bold bg-[#0091FF] hover:bg-[#7daaff]" variant="outline" size="sm">
                         Área Admin
@@ -100,7 +106,7 @@ export const Navbar = () => {
                 <Sheet open={isOpen} onOpenChange={setIsOpen}>
                     <SheetTrigger asChild>
                         <Button variant="ghost" size="icon" className="text-primary hover:bg-transparent">
-                            <Menu className="h-6 w-6" />
+                            <Pen className="h-6 w-6" />
                         </Button>
                     </SheetTrigger>
                     <SheetContent side="right" className="w-[300px] sm:w-[400px]">
@@ -122,6 +128,11 @@ export const Navbar = () => {
                             <Link to="/admin" onClick={() => setIsOpen(false)}>
                                 <Button className="w-full text-white font-bold bg-[#0091FF] hover:bg-[#7daaff]" variant="outline">
                                     Área Admin
+                                </Button>
+                            </Link>
+                            <Link to="/dashboard" onClick={() => setIsOpen(false)}>
+                                <Button className="w-full" variant="ghost">
+                                    Dashboard
                                 </Button>
                             </Link>
                             <Link to="/perfil" onClick={() => setIsOpen(false)} className="flex justify-center">
