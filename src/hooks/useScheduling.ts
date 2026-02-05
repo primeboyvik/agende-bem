@@ -121,9 +121,9 @@ export function useScheduling() {
       }
 
       // Create appointment
-      const { error: appointmentError } = await supabase
+      const { error: appointmentError } = await (supabase
         .from('appointments')
-        .insert({
+        .insert as any)({
           client_id: clientId,
           visit_type: visitType,
           appointment_date: format(date, 'yyyy-MM-dd'),
