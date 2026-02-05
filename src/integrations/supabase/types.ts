@@ -114,27 +114,92 @@ export type Database = {
       }
       profiles: {
         Row: {
+          city: string | null
+          cnpj: string | null
+          company_name: string | null
           created_at: string
           full_name: string | null
+          gender: string | null
           id: string
+          phone: string | null
+          profession: string | null
+          sex: string | null
+          updated_at: string
+          user_id: string
+          user_type: string | null
+        }
+        Insert: {
+          city?: string | null
+          cnpj?: string | null
+          company_name?: string | null
+          created_at?: string
+          full_name?: string | null
+          gender?: string | null
+          id?: string
+          phone?: string | null
+          profession?: string | null
+          sex?: string | null
+          updated_at?: string
+          user_id: string
+          user_type?: string | null
+        }
+        Update: {
+          city?: string | null
+          cnpj?: string | null
+          company_name?: string | null
+          created_at?: string
+          full_name?: string | null
+          gender?: string | null
+          id?: string
+          phone?: string | null
+          profession?: string | null
+          sex?: string | null
+          updated_at?: string
+          user_id?: string
+          user_type?: string | null
+        }
+        Relationships: []
+      }
+      services: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          price: number
+          title: string
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
-          full_name?: string | null
+          description?: string | null
           id?: string
+          image_url?: string | null
+          price: number
+          title: string
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
-          full_name?: string | null
+          description?: string | null
           id?: string
+          image_url?: string | null
+          price?: number
+          title?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "services_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

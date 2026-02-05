@@ -7,6 +7,24 @@ import { Navbar } from "@/components/Navbar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// Types for search results
+interface ServiceResult {
+  id: string;
+  title: string;
+  description?: string;
+  price: number;
+  user_id: string;
+}
+
+interface ProfileResult {
+  user_id: string;
+  full_name?: string;
+  company_name?: string;
+  user_type?: string;
+  city?: string;
+  profession?: string;
+}
+
 export default function SearchResults() {
     const [searchParams] = useSearchParams();
     const query = searchParams.get("q")?.toLowerCase() || "";
@@ -20,27 +38,38 @@ export default function SearchResults() {
             setLoading(true);
             try {
                 // 1. Search in Profiles (Company Name)
-                const { data: profileMatches, error: profileError } = await supabase
+                const { data: profileMatches, error: profileError } = await (supabase
                     .from('profiles')
-                    .select('*, services(*)')
+                    .select('*') as any)
                     .ilike('company_name', `%${query}%`)
                     .in('user_type', ['empresa', 'prestador']); // Only providers
 
                 if (profileError) throw profileError;
 
                 // 2. Search in Services (Service Title/Desc)
-                const { data: serviceMatches, error: serviceError } = await supabase
+                const { data: serviceMatches, error: serviceError } = await (supabase
                     .from('services')
-                    .select('*, profiles(*)')
+                    .select('*') as any)
                     .or(`title.ilike.%${query}%,description.ilike.%${query}%`);
 
                 if (serviceError) throw serviceError;
+
+                // Get profiles for service matches
+                const serviceUserIds = [...new Set((serviceMatches || []).map((s: ServiceResult) => s.user_id))];
+                let serviceProfiles: ProfileResult[] = [];
+                if (serviceUserIds.length > 0) {
+                    const { data: profiles } = await (supabase
+                        .from('profiles')
+                        .select('*') as any)
+                        .in('user_id', serviceUserIds);
+                    serviceProfiles = profiles || [];
+                }
 
                 // 3. Combine and Deduplicate (Group by Provider)
                 const combinedMap = new Map();
 
                 // Process Profile Matches
-                profileMatches?.forEach(profile => {
+                (profileMatches as ProfileResult[] || []).forEach((profile: ProfileResult) => {
                     combinedMap.set(profile.user_id, {
                         id: profile.user_id,
                         name: profile.company_name || profile.full_name || "Sem Nome",
@@ -49,13 +78,13 @@ export default function SearchResults() {
                         address: profile.city || "Localização não informada",
                         description: profile.profession || "Prestador de Serviços",
                         image: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80", // specific or random
-                        services: profile.services?.map((s: any) => s.title) || []
+                        services: []
                     });
                 });
 
                 // Process Service Matches (Add provider if not exists)
-                serviceMatches?.forEach(service => {
-                    const profile = service.profiles;
+                (serviceMatches as ServiceResult[] || []).forEach((service: ServiceResult) => {
+                    const profile = serviceProfiles.find((p: ProfileResult) => p.user_id === service.user_id);
                     if (profile && !combinedMap.has(profile.user_id)) {
                         combinedMap.set(profile.user_id, {
                             id: profile.user_id,
