@@ -75,83 +75,73 @@ export default function Profile() {
 
   // Load Data from Supabase
   useEffect(() => {
-    if (profile) {
-      // Basic Profile
-      setFullName(profile.full_name || user.user_metadata?.full_name || "");
+    if (user) {
+      // 1. Load Profile Data (merging metadata fallback for safety while migrating)
+      const loadProfile = async () => {
+        // We reload profile to ensure we have latest columns if they exist
+        const { data: profileData } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
 
-      // Load from Metadata (or Profile if exists in future schema)
-      // @ts-ignore
-      setPhone(user.user_metadata?.phone || profile.phone || "");
-      // @ts-ignore
-      setClientType(user.user_metadata?.user_type || profile.user_type || "usuario");
-      // @ts-ignore
-      setSex(user.user_metadata?.sex || profile.sex || "");
-      // @ts-ignore
-      setGender(user.user_metadata?.gender || profile.gender || "");
-      // @ts-ignore
-      setProfession(user.user_metadata?.profession || profile.profession || "");
-      // @ts-ignore
-      setCompanyName(user.user_metadata?.company_name || profile.company_name || "");
-      // @ts-ignore
-      setCnpj(user.user_metadata?.cnpj || profile.cnpj || "");
+        if (profileData) {
+          setFullName(profileData.full_name || "");
+          // @ts-ignore
+          setPhone(profileData.phone || user.user_metadata?.phone || "");
+          // @ts-ignore
+          setClientType(profileData.user_type || user.user_metadata?.user_type || "usuario");
+          // @ts-ignore
+          setSex(profileData.sex || user.user_metadata?.sex || "");
+          // @ts-ignore
+          setGender(profileData.gender || user.user_metadata?.gender || "");
+          // @ts-ignore
+          setProfession(profileData.profession || user.user_metadata?.profession || "");
+          // @ts-ignore
+          setCompanyName(profileData.company_name || user.user_metadata?.company_name || "");
+          // @ts-ignore
+          setCnpj(profileData.cnpj || user.user_metadata?.cnpj || "");
+        } else {
+          // Fallback if profile row is missing (shouldn't happen for auth user)
+          setFullName(user.user_metadata?.full_name || "");
+        }
 
-      // Fetch Sub-tables
-      const fetchSubData = async () => {
-        if (!user) return;
+        // 2. Load Services from Table
+        const { data: servicesData, error: servicesError } = await supabase
+          .from('services')
+          .select('*')
+          .eq('user_id', user.id);
 
-        const { data: servicesData } = await supabase.from('services').select('*').eq('user_id', user.id);
-        if (servicesData) setMyServices(servicesData);
+        if (servicesData && servicesData.length > 0) {
+          setMyServices(servicesData);
+        } else {
+          // Fallback to metadata if table is empty (migration phase)
+          setMyServices(user.user_metadata?.services || []);
+        }
 
-        const { data: addrData } = await supabase.from('addresses').select('*').eq('user_id', user.id);
-        if (addrData) setAddresses(addrData);
-
-        const { data: cardsData } = await supabase.from('payment_methods').select('*').eq('user_id', user.id);
-        if (cardsData) setCards(cardsData);
+        // 3. Load Arrays from Metadata (Addresses/Cards)
+        setAddresses(user.user_metadata?.addresses || []);
+        setCards(user.user_metadata?.payment_methods || []);
       };
 
-      fetchSubData();
+      loadProfile();
     }
-  }, [profile, user]);
+  }, [user]);
 
   // ... inside component ...
-  const [signupSuccess, setSignupSuccess] = useState(false);
-
   // ... existing effects ...
-
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthLoading(true);
-
-    try {
-      if (authMode === "signup") {
-        await signUp(email, password, fullName);
-        setSignupSuccess(true);
-        toast.success("Conta criada! Verifique seu email.");
-      } else {
-        await signIn(email, password);
-        toast.success("Login realizado com sucesso!");
-        if (returnUrl) {
-          navigate(returnUrl);
-        }
-      }
-    } catch (error: any) {
-      toast.error(error.message || "Erro na autenticação");
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  // ... rest of code
 
   const handleSaveAll = async () => {
     if (!user) return;
     setAuthLoading(true);
 
     try {
-      // 1. Update Profile
-      // 1. Update Profile (Base Table)
+      // 1. Update Profile (Base Table - NOW WITH EXTENDED COLUMNS)
       const profileUpdates = {
         full_name: fullName,
+        phone,
+        user_type: clientType,
+        sex,
+        gender,
+        profession,
+        company_name: companyName,
+        cnpj,
         updated_at: new Date().toISOString(),
       };
 
@@ -162,109 +152,80 @@ export default function Profile() {
 
       if (profileError) throw profileError;
 
-      // 1.5 Update User Metadata (Extra Fields)
+      // 2. Update User Metadata (Only for Addresses and Cards now)
+      // We keep others in metadata as backup/read-only or for session ease
       const { error: metadataError } = await supabase.auth.updateUser({
         data: {
-          full_name: fullName, // Keep in sync
+          full_name: fullName,
           phone,
           user_type: clientType,
-          sex,
-          gender,
-          profession,
-          company_name: companyName,
-          cnpj,
+          company_name: companyName, // Keep syncing for now
+          addresses: addresses,
+          payment_methods: cards
+          // Services are now in their own table, we don't overwrite metadata services to avoid confusion
+          // or we could clear them to save space? Let's leave them for safety.
         }
       });
 
       if (metadataError) throw metadataError;
 
-      // 2. Services (Naive sync: upsert all local state)
-      // Ideally we differentiate new vs update, but upsert with ID works if ID is preserved
-      // For new items added locally, they might have temp IDs (Date.now()), we should remove those
-      // and let DB generate UUIDs, OR generate UUIDs locally.
-      // Simplified approach: Insert new ones, update existing ones.
-
-      // Note: For simplicity in this iteration, we iterate and upsert.
-      for (const service of myServices) {
-        const payload: any = {
-          user_id: user.id,
-          name: service.name,
-          price: parseFloat(service.price) || 0,
-          description: service.description,
-          image_url: service.image,
-        };
-        // If ID looks like a UUID (length 36), include it. If it's a number (Date.now()), don't.
-        if (typeof service.id === 'string' && service.id.length > 20) {
-          payload.id = service.id;
-        }
-
-        await supabase.from('services').upsert(payload);
-      }
-
-      // Refresh Lists
-      const { data: servicesData } = await supabase.from('services').select('*').eq('user_id', user.id);
-      if (servicesData) setMyServices(servicesData);
-
-      // 3. Addresses
-      for (const addr of addresses) {
-        const payload: any = {
-          user_id: user.id,
-          street: addr.street,
-          city: addr.city,
-          zip_code: addr.zip, // Schema uses zip_code
-        };
-        if (typeof addr.id === 'string' && addr.id.length > 20) {
-          payload.id = addr.id;
-        }
-        await supabase.from('addresses').upsert(payload);
-      }
-      const { data: addrData } = await supabase.from('addresses').select('*').eq('user_id', user.id);
-      if (addrData) setAddresses(addrData);
-
-      // 4. Payment Methods
-      for (const card of cards) {
-        const payload: any = {
-          user_id: user.id,
-          card_last4: card.last4 || card.card_last4,
-          card_holder: card.holder || card.card_holder,
-          expiry_date: card.expiry || card.expiry_date,
-        };
-        if (typeof card.id === 'string' && card.id.length > 20) {
-          payload.id = card.id;
-        }
-        await supabase.from('payment_methods').upsert(payload);
-      }
-      const { data: cardsData } = await supabase.from('payment_methods').select('*').eq('user_id', user.id);
-      if (cardsData) setCards(cardsData);
-
-      toast.success("Todas as alterações foram salvas com sucesso!");
+      toast.success("Dados do perfil salvos com sucesso!");
       setIsEditing(false);
 
     } catch (error: any) {
       console.error("Save Error:", error);
-      toast.error("Erro ao salvar alterações: " + error.message);
+      toast.error("Erro ao salvar perfil: " + error.message);
     } finally {
       setAuthLoading(false);
     }
   }
 
-  const handleLogout = async () => {
+  // Service Handlers (Direct DB Mode)
+  const handleAddService = async () => {
+    if (!newService.name || !newService.price) {
+      toast.error("Preencha nome e valor do serviço");
+      return;
+    }
+
     try {
-      await signOut();
-      toast.success("Até logo!");
-      navigate("/");
+      const payload = {
+        user_id: user.id,
+        title: newService.name,
+        description: newService.description,
+        price: parseFloat(newService.price) || 0,
+        image_url: newService.image,
+      };
+
+      const { data, error } = await supabase.from('services').insert(payload).select().single();
+      if (error) throw error;
+
+      setMyServices([...myServices, data]);
+      setNewService({ name: "", price: "", description: "", image: "" });
+      toast.success("Serviço salvo!");
     } catch (error: any) {
-      toast.error("Erro ao sair");
+      toast.error("Erro ao salvar serviço: " + error.message);
     }
   };
 
-  // Add Item Handlers
-  const addService = () => {
-    if (!newService.name || !newService.price) return;
-    // Temp ID
-    setMyServices([...myServices, { ...newService, id: Date.now() }]);
-    setNewService({ name: "", price: "", description: "", image: "" });
+  const handleRemoveService = async (id: any) => {
+    try {
+      // Check if it's a real UUID (from DB)
+      if (typeof id === 'string' && id.length > 20) {
+        const { error } = await supabase.from('services').delete().eq('id', id);
+        if (error) throw error;
+      }
+      // Update local state
+      setMyServices(myServices.filter(s => s.id !== id));
+      toast.success("Serviço removido");
+    } catch (error: any) {
+      toast.error("Erro ao remover: " + error.message);
+    }
   };
+
+  // Legacy local handlers -> Moved to direct DB above
+  // Placeholder to keep TS happy if referenced elsewhere, but we replaced usage
+  const addService = handleAddService;
+  const removeService = handleRemoveService;
 
   const addAddress = () => {
     if (!newAddress.street) return;
@@ -278,28 +239,6 @@ export default function Profile() {
     setNewCard({ number: "", holder: "", expiry: "" });
   };
 
-  const removeService = async (id: any) => {
-    // Optimistic Update
-    setMyServices(myServices.filter(s => s.id !== id));
-    // If authentic ID, delete from DB
-    if (typeof id === 'string' && id.length > 20) {
-      await supabase.from('services').delete().eq('id', id);
-    }
-  };
-
-  const removeAddress = async (id: any) => {
-    setAddresses(addresses.filter(a => a.id !== id));
-    if (typeof id === 'string' && id.length > 20) {
-      await supabase.from('addresses').delete().eq('id', id);
-    }
-  };
-
-  const removeCard = async (id: any) => {
-    setCards(cards.filter(c => c.id !== id));
-    if (typeof id === 'string' && id.length > 20) {
-      await supabase.from('payment_methods').delete().eq('id', id);
-    }
-  };
 
   if (isLoading) {
     return (
