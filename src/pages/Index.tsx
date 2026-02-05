@@ -4,10 +4,50 @@ import { VisitTypeCard } from '@/components/scheduling/VisitTypeCard';
 import { Navbar } from '@/components/Navbar';
 import { PricingSection } from '@/components/landing/PricingSection';
 import { Calendar, Sparkles, ArrowRight, Zap } from 'lucide-react';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import { useRef } from 'react';
 
 const Index = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"]
+  });
+
+  // Feather Animation
+  const featherY = useTransform(scrollYProgress, [0, 1], ["0%", "200%"]); // Moves down deeper
+  const featherRotate = useTransform(scrollYProgress, [0, 1], [0, 720]); // Spins more
+  const featherOpacity = useTransform(scrollYProgress, [0, 0.1, 0.8, 1], [0, 1, 1, 0]); // Fades in then out
+  const featherX = useTransform(scrollYProgress,
+    [0, 0.25, 0.5, 0.75, 1],
+    ["-100%", "100%", "-50%", "120%", "-100%"]
+  ); // Swaying motion
+
+  // Scroll Reveal Variants
+  const fadeInUp = {
+    hidden: { opacity: 0, y: 60 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+  };
+
   return (
-    <div className="min-h-screen bg-background">
+    <div ref={containerRef} className="min-h-screen bg-background relative overflow-hidden">
+
+      {/* Floating Feather */}
+      <motion.img
+        src="/Pena.jpg"
+        alt="Feather"
+        style={{
+          y: featherY,
+          x: featherX,
+          rotate: featherRotate,
+          opacity: featherOpacity,
+          top: '0%', // Start inside the header area
+          left: '50%',
+        }}
+        className="fixed w-16 md:w-24 z-20 pointer-events-none mix-blend-multiply filter contrast-125"
+        initial={{ y: 0, opacity: 0 }}
+      />
+
       {/* Hero Section */}
       <header className="relative overflow-hidden">
         <div className="absolute inset-0 z-0">
@@ -62,7 +102,13 @@ const Index = () => {
       </header>
 
       {/* Visit Types Section */}
-      <section className="py-20 px-6">
+      <motion.section
+        className="py-20 px-6"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={fadeInUp}
+      >
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Escolha sua Experiência</h2>
@@ -83,10 +129,16 @@ const Index = () => {
             </Link>
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* How it Works Section */}
-      <section className="py-20 px-6 bg-muted/30">
+      <motion.section
+        className="py-20 px-6 bg-muted/30"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={fadeInUp}
+      >
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Como Funciona</h2>
@@ -123,10 +175,16 @@ const Index = () => {
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* CTA Section */}
-      <section className="py-20 px-6">
+      <motion.section
+        className="py-20 px-6"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={fadeInUp}
+      >
         <div className="max-w-2xl mx-auto text-center">
           <div className="p-8 bg-gradient-electric rounded-3xl shadow-glow">
             <Calendar className="w-12 h-12 text-white mx-auto mb-4" />
@@ -144,7 +202,7 @@ const Index = () => {
             </Link>
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Pricing Section */}
       <PricingSection />

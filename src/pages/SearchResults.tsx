@@ -45,7 +45,7 @@ export default function SearchResults() {
                     // 1. Search in Profiles (Company Name)
                     const { data: profiles, error: profileError } = await (supabase
                         .from('profiles')
-                        .select('*') as any)
+                        .select('user_id, company_name, full_name, city, profession, user_type') as any)
                         .ilike('company_name', `%${query}%`)
                         .in('user_type', ['empresa', 'prestador']);
 
@@ -55,7 +55,7 @@ export default function SearchResults() {
                     // 2. Search in Services (Service Title/Desc)
                     const { data: services, error: serviceError } = await (supabase
                         .from('services')
-                        .select('*') as any)
+                        .select('id, title, description, price, user_id, image_url') as any)
                         .or(`title.ilike.%${query}%,description.ilike.%${query}%`);
 
                     if (serviceError) throw serviceError;
@@ -67,7 +67,7 @@ export default function SearchResults() {
                     if (serviceUserIds.length > 0) {
                         const { data: profiles } = await (supabase
                             .from('profiles')
-                            .select('*') as any)
+                            .select('user_id, company_name, full_name, city, profession, user_type') as any)
                             .in('user_id', serviceUserIds);
                         serviceProfiles = profiles || [];
                     }
@@ -75,7 +75,7 @@ export default function SearchResults() {
                     // If no query, fetch all business profiles
                     const { data: profiles, error: profileError } = await (supabase
                         .from('profiles')
-                        .select('*') as any)
+                        .select('user_id, company_name, full_name, city, profession, user_type') as any)
                         .in('user_type', ['empresa', 'prestador']);
 
                     if (profileError) throw profileError;
