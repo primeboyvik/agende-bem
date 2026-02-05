@@ -1,22 +1,100 @@
+import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { getCompanies } from "@/data/mockCompanies";
-import { MapPin, Star, ArrowLeft } from "lucide-react";
+import { MapPin, Star, ArrowLeft, Loader2, Briefcase } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function SearchResults() {
     const [searchParams] = useSearchParams();
     const query = searchParams.get("q")?.toLowerCase() || "";
     const navigate = useNavigate();
 
-    const companies = getCompanies();
+    const [results, setResults] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
 
-    const results = companies.filter(company =>
-        company.name.toLowerCase().includes(query) ||
-        company.services.some(service => service.toLowerCase().includes(query)) ||
-        company.description.toLowerCase().includes(query)
-    );
+    useEffect(() => {
+        const fetchResults = async () => {
+            setLoading(true);
+            try {
+                // 1. Search in Profiles (Company Name)
+                const { data: profileMatches, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('*, services(*)')
+                    .ilike('company_name', `%${query}%`)
+                    .in('user_type', ['empresa', 'prestador']); // Only providers
+
+                if (profileError) throw profileError;
+
+                // 2. Search in Services (Service Title/Desc)
+                const { data: serviceMatches, error: serviceError } = await supabase
+                    .from('services')
+                    .select('*, profiles(*)')
+                    .or(`title.ilike.%${query}%,description.ilike.%${query}%`);
+
+                if (serviceError) throw serviceError;
+
+                // 3. Combine and Deduplicate (Group by Provider)
+                const combinedMap = new Map();
+
+                // Process Profile Matches
+                profileMatches?.forEach(profile => {
+                    combinedMap.set(profile.user_id, {
+                        id: profile.user_id,
+                        name: profile.company_name || profile.full_name || "Sem Nome",
+                        type: profile.user_type,
+                        rating: 4.8, // Mock or impl rating later
+                        address: profile.city || "Localização não informada",
+                        description: profile.profession || "Prestador de Serviços",
+                        image: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80", // specific or random
+                        services: profile.services?.map((s: any) => s.title) || []
+                    });
+                });
+
+                // Process Service Matches (Add provider if not exists)
+                serviceMatches?.forEach(service => {
+                    const profile = service.profiles;
+                    if (profile && !combinedMap.has(profile.user_id)) {
+                        combinedMap.set(profile.user_id, {
+                            id: profile.user_id,
+                            name: profile.company_name || profile.full_name || "Sem Nome",
+                            type: profile.user_type,
+                            rating: 5.0,
+                            address: profile.city || "Localização não informada",
+                            description: profile.profession || "Prestador de Serviços",
+                            image: "https://images.unsplash.com/photo-1540555399-503432a85076?auto=format&fit=crop&q=80",
+                            services: [] // Will fetch separately or use this one?
+                        });
+                    }
+                    // Improve: We could highlight the matched service
+                });
+
+                // If we added via service match, we might want to fetch that provider's services to list them
+                // For simplified MVP, we just show the array.
+                // NOTE: serviceMatches returns `profiles` as an object (the relation).
+
+                // Let's refine the "Services" list for those added via Service Match
+                // Actually, `serviceMatches` row has ONE service. The provider might have more.
+                // We'll rely on the profileMatches for full list, or maybe we just show generic.
+
+                setResults(Array.from(combinedMap.values()));
+
+            } catch (error) {
+                console.error("Search error:", error);
+                toast.error("Erro ao buscar resultados");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (query) {
+            fetchResults();
+        } else {
+            setResults([]);
+        }
+    }, [query]);
 
     return (
         <div className="min-h-screen bg-background pb-12">
@@ -31,11 +109,15 @@ export default function SearchResults() {
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold">Resultados da busca</h1>
                     <p className="text-muted-foreground mt-2">
-                        Exibindo {results.length} resultados para "{searchParams.get("q")}"
+                        Exibindo {results.length} resultados para "{query}"
                     </p>
                 </div>
 
-                {results.length > 0 ? (
+                {loading ? (
+                    <div className="flex justify-center py-12">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    </div>
+                ) : results.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {results.map((company) => (
                             <Card key={company.id} className="overflow-hidden border-none shadow-electric hover:shadow-glow transition-all duration-300 group">
@@ -48,7 +130,7 @@ export default function SearchResults() {
                                     />
                                     <div className="absolute bottom-4 left-4 z-20">
                                         <span className="px-2 py-1 bg-primary text-primary-foreground text-xs font-bold rounded-full mb-2 inline-block">
-                                            {company.type}
+                                            {company.type === 'empresa' ? 'Empresa' : 'Profissional'}
                                         </span>
                                         <h3 className="text-white font-bold text-xl">{company.name}</h3>
                                     </div>
@@ -66,12 +148,16 @@ export default function SearchResults() {
                                         {company.description}
                                     </p>
                                     <div className="flex flex-wrap gap-2 mb-6">
-                                        {company.services.slice(0, 3).map((service, index) => (
-                                            <span key={index} className="text-xs bg-muted px-2 py-1 rounded-md text-muted-foreground">
-                                                {service}
-                                            </span>
-                                        ))}
-                                        {company.services.length > 3 && (
+                                        {company.services && company.services.length > 0 ? (
+                                            company.services.slice(0, 3).map((service: string, index: number) => (
+                                                <span key={index} className="text-xs bg-muted px-2 py-1 rounded-md text-muted-foreground">
+                                                    {service}
+                                                </span>
+                                            ))
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground italic">Serviços sob consulta</span>
+                                        )}
+                                        {company.services && company.services.length > 3 && (
                                             <span className="text-xs bg-muted px-2 py-1 rounded-md text-muted-foreground">
                                                 +{company.services.length - 3}
                                             </span>
@@ -87,11 +173,13 @@ export default function SearchResults() {
                 ) : (
                     <div className="text-center py-12">
                         <div className="w-full max-w-sm mx-auto mb-6">
-                            <img src="https://illustrations.popsy.co/gray/surr-searching.svg" alt="No results" className="w-full h-auto opacity-50" />
+                            <div className="w-32 h-32 bg-muted rounded-full flex items-center justify-center mx-auto">
+                                <Briefcase className="w-12 h-12 text-muted-foreground/50" />
+                            </div>
                         </div>
                         <h3 className="text-xl font-semibold mb-2">Nenhum resultado encontrado</h3>
                         <p className="text-muted-foreground">
-                            Tente buscar por outros termos ou verifique a ortografia.
+                            Tente buscar por outros termos como "Cabelo", "Unha" ou o nome da empresa.
                         </p>
                     </div>
                 )}

@@ -31,6 +31,7 @@ export default function Profile() {
   const [fullName, setFullName] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState(false);
 
   // -- PROFILE DATA STATES --
   const [phone, setPhone] = useState("");
@@ -127,6 +128,29 @@ export default function Profile() {
   // ... inside component ...
   // ... existing effects ...
 
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+
+    try {
+      if (authMode === "signup") {
+        await signUp(email, password, fullName);
+        setSignupSuccess(true);
+        toast.success("Conta criada! Verifique seu email.");
+      } else {
+        await signIn(email, password);
+        toast.success("Login realizado com sucesso!");
+        if (returnUrl) {
+          navigate(returnUrl);
+        }
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Erro na autenticação");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const handleSaveAll = async () => {
     if (!user) return;
     setAuthLoading(true);
@@ -179,6 +203,16 @@ export default function Profile() {
       setAuthLoading(false);
     }
   }
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast.success("Até logo!");
+      navigate("/");
+    } catch (error: any) {
+      toast.error("Erro ao sair");
+    }
+  };
 
   // Service Handlers (Direct DB Mode)
   const handleAddService = async () => {
@@ -237,6 +271,16 @@ export default function Profile() {
     if (!newCard.number) return;
     setCards([...cards, { ...newCard, last4: newCard.number.slice(-4), id: Date.now() }]);
     setNewCard({ number: "", holder: "", expiry: "" });
+  };
+
+  const removeAddress = async (id: any) => {
+    setAddresses(addresses.filter(a => a.id !== id));
+    // Metadata only
+  };
+
+  const removeCard = async (id: any) => {
+    setCards(cards.filter(c => c.id !== id));
+    // Metadata only
   };
 
 
