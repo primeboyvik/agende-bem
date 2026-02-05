@@ -5,29 +5,45 @@ import { Card } from '@/components/ui/card';
 import { TimeSlotPicker } from '@/components/scheduling/TimeSlotPicker';
 import { ClientForm, ClientFormData } from '@/components/scheduling/ClientForm';
 import { useAuth } from '@/hooks/useAuth';
-
 import { useScheduling } from '@/hooks/useScheduling';
 import { TimeSlot } from '@/types/scheduling';
-import { ArrowLeft, CheckCircle, MapPin, Star } from 'lucide-react';
+import { ArrowLeft, CheckCircle, MapPin } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/components/ui/use-toast';
 import Logo from '@/Logo.png';
 import { Calendar } from "@/components/ui/calendar";
-import { getCompanies, Company } from '@/data/mockCompanies';
+import { supabase } from '@/integrations/supabase/client';
 import { Navbar } from '@/components/Navbar';
 
 type Step = 'service' | 'datetime' | 'form' | 'success';
+
+interface ProviderData {
+  user_id: string;
+  full_name: string | null;
+  company_name: string | null;
+  city: string | null;
+  profession: string | null;
+}
+
+interface ServiceData {
+  id: string;
+  title: string;
+  description: string | null;
+  price: number;
+}
 
 const Booking = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { generateTimeSlots, createAppointment, isLoading } = useScheduling();
-  const { user, isLoading: authLoading } = useAuth(); // Use useAuth hook
+  const { user, isLoading: authLoading } = useAuth();
 
   const companyId = searchParams.get('company');
-  const [company, setCompany] = useState<Company | null>(null);
+  const [provider, setProvider] = useState<ProviderData | null>(null);
+  const [services, setServices] = useState<ServiceData[]>([]);
+  const [loadingProvider, setLoadingProvider] = useState(true);
 
   const [step, setStep] = useState<Step>('service');
   const [selectedService, setSelectedService] = useState<string | null>(null);
@@ -36,18 +52,56 @@ const Booking = () => {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [appointmentDetails, setAppointmentDetails] = useState<any>(null);
 
-  // Load Company Data
+  // Load Provider Data from Supabase
   useEffect(() => {
-    if (companyId) {
-      const companies = getCompanies();
-      const found = companies.find(c => c.id === companyId);
-      if (found) {
-        setCompany(found);
-      } else {
-        toast({ title: "Empresa não encontrada", variant: "destructive" });
+    const fetchProvider = async () => {
+      if (!companyId) {
+        setLoadingProvider(false);
+        return;
       }
-    }
-  }, [companyId]);
+
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('user_id, full_name, company_name, city, profession')
+          .eq('user_id', companyId)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error('Error fetching provider:', profileError);
+          toast({ title: "Erro ao carregar dados da empresa", variant: "destructive" });
+          setLoadingProvider(false);
+          return;
+        }
+
+        if (!profileData) {
+          toast({ title: "Empresa não encontrada", variant: "destructive" });
+          setLoadingProvider(false);
+          return;
+        }
+
+        setProvider(profileData);
+
+        const { data: servicesData, error: servicesError } = await supabase
+          .from('services')
+          .select('id, title, description, price')
+          .eq('user_id', companyId);
+
+        if (servicesError) {
+          console.error('Error fetching services:', servicesError);
+        } else {
+          setServices(servicesData || []);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        toast({ title: "Erro ao carregar dados", variant: "destructive" });
+      } finally {
+        setLoadingProvider(false);
+      }
+    };
+
+    fetchProvider();
+  }, [companyId, toast]);
 
   // Protect route
   useEffect(() => {
@@ -93,7 +147,7 @@ const Booking = () => {
         setAppointmentDetails({
           ...clientData,
           service: selectedService,
-          companyName: company?.name || "Agende Bem",
+          companyName: provider?.company_name || provider?.full_name || "Agende Bem",
           date: selectedDate,
           time: selectedTime,
         });
@@ -111,6 +165,8 @@ const Booking = () => {
     }
   };
 
+  const providerDisplayName = provider?.company_name || provider?.full_name || "Prestador";
+
   return (
     <div className="min-h-screen bg-background pb-12">
       <Navbar />
@@ -127,19 +183,23 @@ const Booking = () => {
 
       <main className="max-w-4xl mx-auto px-6 py-12">
         {/* Company Header Info (Only if company is loaded) */}
-        {company && step !== 'success' && (
+        {provider && step !== 'success' && (
           <div className="mb-8 p-6 bg-card rounded-xl shadow-sm border flex items-start gap-4">
-            <div className="w-20 h-20 rounded-md overflow-hidden bg-muted flex-shrink-0">
-              <img src={company.image} alt={company.name} className="w-full h-full object-cover" />
+            <div className="w-20 h-20 rounded-md overflow-hidden bg-primary/10 flex-shrink-0 flex items-center justify-center">
+              <span className="text-3xl font-bold text-primary">
+                {providerDisplayName.charAt(0).toUpperCase()}
+              </span>
             </div>
             <div>
-              <h1 className="text-2xl font-bold">{company.name}</h1>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                <MapPin className="w-4 h-4" /> {company.address}
-              </div>
-              <div className="flex items-center gap-1 text-sm text-yellow-500 mt-1">
-                <Star className="w-4 h-4 fill-current" /> {company.rating}
-              </div>
+              <h1 className="text-2xl font-bold">{providerDisplayName}</h1>
+              {provider.city && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                  <MapPin className="w-4 h-4" /> {provider.city}
+                </div>
+              )}
+              {provider.profession && (
+                <p className="text-sm text-muted-foreground mt-1">{provider.profession}</p>
+              )}
             </div>
           </div>
         )}
@@ -181,20 +241,33 @@ const Booking = () => {
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
-              {company ? (
-                company.services.map((service, index) => (
+              {loadingProvider ? (
+                <div className="col-span-2 text-center py-12 text-muted-foreground">
+                  Carregando serviços...
+                </div>
+              ) : provider && services.length > 0 ? (
+                services.map((service) => (
                   <Card
-                    key={index}
-                    className={`p-6 cursor-pointer hover:border-primary transition-all ${selectedService === service ? 'border-2 border-primary bg-primary/5' : ''}`}
+                    key={service.id}
+                    className={`p-6 cursor-pointer hover:border-primary transition-all ${selectedService === service.title ? 'border-2 border-primary bg-primary/5' : ''}`}
                     onClick={() => {
-                      setSelectedService(service);
+                      setSelectedService(service.title);
                       setStep('datetime');
                     }}
                   >
-                    <h3 className="font-bold text-lg">{service}</h3>
-                    <p className="text-muted-foreground text-sm mt-2">Duração aprox: 1h</p>
+                    <h3 className="font-bold text-lg">{service.title}</h3>
+                    {service.description && (
+                      <p className="text-muted-foreground text-sm mt-1">{service.description}</p>
+                    )}
+                    <p className="text-primary font-semibold mt-2">
+                      R$ {service.price.toFixed(2).replace('.', ',')}
+                    </p>
                   </Card>
                 ))
+              ) : provider && services.length === 0 ? (
+                <div className="col-span-2 text-center py-12 text-muted-foreground">
+                  Este prestador ainda não cadastrou serviços.
+                </div>
               ) : (
                 <div className="col-span-2 text-center py-12 text-muted-foreground">
                   Nenhuma empresa selecionada ou encontrada. <br />
@@ -277,7 +350,7 @@ const Booking = () => {
               </div>
               <div className="flex items-center justify-between text-sm mt-2">
                 <span className="text-muted-foreground">Empresa:</span>
-                <span className="font-medium">{company?.name}</span>
+                <span className="font-medium">{providerDisplayName}</span>
               </div>
               <div className="flex items-center justify-between text-sm mt-2">
                 <span className="text-muted-foreground">Data:</span>
