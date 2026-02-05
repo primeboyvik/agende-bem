@@ -64,12 +64,24 @@ const Index = () => {
         <Navbar />
 
         <div className="relative z-10 max-w-4xl mx-auto px-6 py-20 text-left">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-8">
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={fadeInUp}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-8"
+          >
             <Sparkles className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-primary hover:cursor-pointer justify-center place-items-center flex items-center">Sistema de Agendamento Online</span>
-          </div>
+          </motion.div>
 
-          <h1 className="text-4xl md:text-6xl font-bold mb-6">
+          <motion.h1
+            initial="hidden"
+            animate="visible"
+            variants={fadeInUp}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-4xl md:text-6xl font-bold mb-6"
+          >
             Quer{' '}
             <span className="text-gradient-electric">melhorar</span>
             <br />
@@ -79,22 +91,35 @@ const Index = () => {
             {' '}<br />
 
             <span className="text-gradient-electric">Pick a Boo!</span>
-          </h1>
+          </motion.h1>
 
-          <p className="text-lg text-white font-bold text-muted-foreground mb-12 max-w-2xl">
+          <motion.p
+            initial="hidden"
+            animate="visible"
+            variants={fadeInUp}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="text-lg text-white font-bold text-muted-foreground mb-12 max-w-2xl"
+          >
             O seu gerenciamento de tempo de uma forma que você nunca viu. Coordene, coopere e organize seu ecossistema!
             <br />
             <br />
             Vem ser feliz com a gente!
 
-          </p>
+          </motion.p>
 
-          <Link to="/search">
-            <Button size="lg" className="bg-gradient-electric hover:opacity-90 text-primary-foreground font-semibold px-8 py-6 text-lg shadow-electric group">
-              Agendar Agora
-              <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-2 duration-300 transition-transform" />
-            </Button>
-          </Link>
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={fadeInUp}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
+            <Link to="/search">
+              <Button size="lg" className="bg-gradient-electric hover:opacity-90 text-primary-foreground font-semibold px-8 py-6 text-lg shadow-electric group">
+                Agendar Agora
+                <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-2 duration-300 transition-transform" />
+              </Button>
+            </Link>
+          </motion.div>
         </div>
 
         {/* Smooth transition to next section */}

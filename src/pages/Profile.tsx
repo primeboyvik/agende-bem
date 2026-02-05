@@ -187,6 +187,25 @@ export default function Profile() {
         if (insertError) throw insertError;
       }
 
+      // 1.1 Sync with 'companys' table if the user is a Company
+      if (clientType === 'empresa') {
+        const companyPayload = {
+          user_id: user.id,
+          company_name: companyName,
+          cnpj: cnpj,
+          updated_at: new Date().toISOString()
+        };
+
+        const { error: companyError } = await (supabase
+          .from('companys') as any)
+          .upsert(companyPayload, { onConflict: 'user_id' });
+
+        if (companyError) {
+          console.error("Error syncing to companys table:", companyError);
+          toast.error("Erro ao sincronizar dados da empresa.");
+        }
+      }
+
       // 2. Update Private Data in User Metadata (Secure & Code-Only Solution)
       // We are moving away from the private table due to persistent schema cache errors.
       // Metadata is secure (only user can update own) and accessible.
@@ -577,6 +596,14 @@ export default function Profile() {
                           <SelectItem value="prestador">Prestador</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Gênero</Label>
+                      <Input value={gender} onChange={e => setGender(e.target.value)} disabled={!isEditing} placeholder="Como se identifica" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Sexo</Label>
+                      <Input value={sex} onChange={e => setSex(e.target.value)} disabled={!isEditing} placeholder="M / F" />
                     </div>
                   </div>
 
