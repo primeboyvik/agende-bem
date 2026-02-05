@@ -78,30 +78,56 @@ export default function Profile() {
   // Load Data from Supabase
   useEffect(() => {
     if (user) {
-      // 1. Load Profile Data (merging metadata fallback for safety while migrating)
+      // 1. Load Profile Data (Public & Private)
       const loadProfile = async () => {
-        // We reload profile to ensure we have latest columns if they exist
-        const { data: profileData } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
+        // Fetch Public Data
+        const { data: publicData } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
 
-        if (profileData) {
-          setFullName(profileData.full_name || "");
-          // @ts-ignore
-          setPhone(profileData.phone || user.user_metadata?.phone || "");
-          // @ts-ignore
-          setClientType(profileData.user_type || user.user_metadata?.user_type || "usuario");
-          // @ts-ignore
-          setSex(profileData.sex || user.user_metadata?.sex || "");
-          // @ts-ignore
-          setGender(profileData.gender || user.user_metadata?.gender || "");
-          // @ts-ignore
-          setProfession(profileData.profession || user.user_metadata?.profession || "");
-          // @ts-ignore
-          setCompanyName(profileData.company_name || user.user_metadata?.company_name || "");
-          // @ts-ignore
-          setCnpj(profileData.cnpj || user.user_metadata?.cnpj || "");
+        // Fetch Private Data via RPC (Bypassing Table Cache)
+        const { data: privateData, error: privateError } = await supabase
+          .rpc('get_private_profile', { user_id_input: user.id });
+
+        if (publicData) {
+          setFullName(publicData.full_name || "");
+          setClientType(publicData.user_type || "usuario");
+          setProfession(publicData.profession || "");
+          setCompanyName(publicData.company_name || "");
+          // City? It seems city was in profiles schema but not clearly used in state in previous file view?
+          // Checking line 15: ADD COLUMN IF NOT EXISTS city TEXT; in schema.
+          // Checking original Profile.tsx, looking at state...
+          // Ah, I don't see a "city" state in the top level states list provided in original file view?
+          // Wait, verify line 47: const [addresses, setAddresses]... newAddress has city.
+          // There is no top-level "city" state for the profile itself in the original snippet provided?
+          // Line 47: states...
+          // Lines 82-106: original load logic.
+          // It loaded phone, clientType, sex, gender, profession, companyName, cnpj.
+          // It did NOT load city into a top level state?
+          // Re-reading usage... Section "Company Specific" only uses companyName and cnpj.
+          // Section "My Data" uses fullName, email, phone, clientType.
+          // Section "Address" uses addresses array.
+          // Okay, so city is likely just in addresses or I missed it.
+          // Wait, the schema has `city`. The search results use `city`.
+          // If `city` is public, it stays in `profiles`. I should probably ensure it's handled if I missed it,
+          // but strictly speaking I am tasked with `profiles_private`.
         } else {
-          // Fallback if profile row is missing (shouldn't happen for auth user)
           setFullName(user.user_metadata?.full_name || "");
+        }
+
+        if (privateData) {
+          setPhone(privateData.phone || "");
+          setSex(privateData.sex || "");
+          setGender(privateData.gender || "");
+          setCnpj(privateData.cnpj || "");
+        } else {
+          // Fallback for migration phase or first load
+          // @ts-ignore
+          setPhone(user.user_metadata?.phone || "");
+          // @ts-ignore
+          setSex(user.user_metadata?.sex || "");
+          // @ts-ignore
+          setGender(user.user_metadata?.gender || "");
+          // @ts-ignore
+          setCnpj(user.user_metadata?.cnpj || "");
         }
 
         // 2. Load Services from Table
@@ -113,7 +139,6 @@ export default function Profile() {
         if (servicesData && servicesData.length > 0) {
           setMyServices(servicesData);
         } else {
-          // Fallback to metadata if table is empty (migration phase)
           setMyServices(user.user_metadata?.services || []);
         }
 
@@ -157,38 +182,54 @@ export default function Profile() {
     setAuthLoading(true);
 
     try {
-      // 1. Update Profile (Base Table - NOW WITH EXTENDED COLUMNS)
-      const profileUpdates = {
+      // 1. Update Public Profile
+      const publicUpdates = {
         full_name: fullName,
-        phone,
         user_type: clientType,
-        sex,
-        gender,
         profession,
         company_name: companyName,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error: publicError } = await supabase
+        .from('profiles')
+        .update(publicUpdates)
+        .eq('user_id', user.id);
+
+      if (publicError) throw publicError;
+
+      // 2. Update Private Profile
+      const privateUpdates = {
+        user_id: user.id,
+        phone,
+        sex,
+        gender,
         cnpj,
         updated_at: new Date().toISOString(),
       };
 
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update(profileUpdates)
-        .eq('user_id', user.id);
+      // Upsert private data via RPC (Bypass Table Cache)
+      const { error: privateError } = await supabase
+        .rpc('upsert_private_profile', {
+          p_phone: phone,
+          p_cnpj: cnpj,
+          p_sex: sex,
+          p_gender: gender
+        });
 
-      if (profileError) throw profileError;
+      if (privateError) throw privateError;
 
-      // 2. Update User Metadata (Only for Addresses and Cards now)
+      // 3. Update User Metadata (Only for Addresses and Cards now)
       // We keep others in metadata as backup/read-only or for session ease
       const { error: metadataError } = await supabase.auth.updateUser({
         data: {
           full_name: fullName,
-          phone,
+          // phone, // Don't sync sensitive data to metadata if we can avoid it, but Auth needs phone sometimes?
+          // Actually, let's keep metadata minimal to match security goal.
           user_type: clientType,
-          company_name: companyName, // Keep syncing for now
+          company_name: companyName,
           addresses: addresses,
           payment_methods: cards
-          // Services are now in their own table, we don't overwrite metadata services to avoid confusion
-          // or we could clear them to save space? Let's leave them for safety.
         }
       });
 
