@@ -9,20 +9,20 @@ import { toast } from "sonner";
 
 // Types for search results
 interface ServiceResult {
-  id: string;
-  title: string;
-  description?: string;
-  price: number;
-  user_id: string;
+    id: string;
+    title: string;
+    description?: string;
+    price: number;
+    user_id: string;
 }
 
 interface ProfileResult {
-  user_id: string;
-  full_name?: string;
-  company_name?: string;
-  user_type?: string;
-  city?: string;
-  profession?: string;
+    user_id: string;
+    full_name?: string;
+    company_name?: string;
+    user_type?: string;
+    city?: string;
+    profession?: string;
 }
 
 export default function SearchResults() {
@@ -37,39 +37,56 @@ export default function SearchResults() {
         const fetchResults = async () => {
             setLoading(true);
             try {
-                // 1. Search in Profiles (Company Name)
-                const { data: profileMatches, error: profileError } = await (supabase
-                    .from('profiles')
-                    .select('*') as any)
-                    .ilike('company_name', `%${query}%`)
-                    .in('user_type', ['empresa', 'prestador']); // Only providers
-
-                if (profileError) throw profileError;
-
-                // 2. Search in Services (Service Title/Desc)
-                const { data: serviceMatches, error: serviceError } = await (supabase
-                    .from('services')
-                    .select('*') as any)
-                    .or(`title.ilike.%${query}%,description.ilike.%${query}%`);
-
-                if (serviceError) throw serviceError;
-
-                // Get profiles for service matches
-                const serviceUserIds = [...new Set((serviceMatches || []).map((s: ServiceResult) => s.user_id))];
+                let profileMatches: ProfileResult[] = [];
+                let serviceMatches: ServiceResult[] = [];
                 let serviceProfiles: ProfileResult[] = [];
-                if (serviceUserIds.length > 0) {
-                    const { data: profiles } = await (supabase
+
+                if (query) {
+                    // 1. Search in Profiles (Company Name)
+                    const { data: profiles, error: profileError } = await (supabase
                         .from('profiles')
                         .select('*') as any)
-                        .in('user_id', serviceUserIds);
-                    serviceProfiles = profiles || [];
+                        .ilike('company_name', `%${query}%`)
+                        .in('user_type', ['empresa', 'prestador']);
+
+                    if (profileError) throw profileError;
+                    profileMatches = profiles || [];
+
+                    // 2. Search in Services (Service Title/Desc)
+                    const { data: services, error: serviceError } = await (supabase
+                        .from('services')
+                        .select('*') as any)
+                        .or(`title.ilike.%${query}%,description.ilike.%${query}%`);
+
+                    if (serviceError) throw serviceError;
+                    serviceMatches = services || [];
+
+                    // Get profiles for service matches
+                    const serviceUserIds = [...new Set((serviceMatches).map((s: ServiceResult) => s.user_id))];
+
+                    if (serviceUserIds.length > 0) {
+                        const { data: profiles } = await (supabase
+                            .from('profiles')
+                            .select('*') as any)
+                            .in('user_id', serviceUserIds);
+                        serviceProfiles = profiles || [];
+                    }
+                } else {
+                    // If no query, fetch all business profiles
+                    const { data: profiles, error: profileError } = await (supabase
+                        .from('profiles')
+                        .select('*') as any)
+                        .in('user_type', ['empresa', 'prestador']);
+
+                    if (profileError) throw profileError;
+                    profileMatches = profiles || [];
                 }
 
                 // 3. Combine and Deduplicate (Group by Provider)
                 const combinedMap = new Map();
 
                 // Process Profile Matches
-                (profileMatches as ProfileResult[] || []).forEach((profile: ProfileResult) => {
+                (profileMatches).forEach((profile: ProfileResult) => {
                     combinedMap.set(profile.user_id, {
                         id: profile.user_id,
                         name: profile.company_name || profile.full_name || "Sem Nome",
@@ -83,7 +100,7 @@ export default function SearchResults() {
                 });
 
                 // Process Service Matches (Add provider if not exists)
-                (serviceMatches as ServiceResult[] || []).forEach((service: ServiceResult) => {
+                (serviceMatches).forEach((service: ServiceResult) => {
                     const profile = serviceProfiles.find((p: ProfileResult) => p.user_id === service.user_id);
                     if (profile && !combinedMap.has(profile.user_id)) {
                         combinedMap.set(profile.user_id, {
@@ -97,16 +114,7 @@ export default function SearchResults() {
                             services: [] // Will fetch separately or use this one?
                         });
                     }
-                    // Improve: We could highlight the matched service
                 });
-
-                // If we added via service match, we might want to fetch that provider's services to list them
-                // For simplified MVP, we just show the array.
-                // NOTE: serviceMatches returns `profiles` as an object (the relation).
-
-                // Let's refine the "Services" list for those added via Service Match
-                // Actually, `serviceMatches` row has ONE service. The provider might have more.
-                // We'll rely on the profileMatches for full list, or maybe we just show generic.
 
                 setResults(Array.from(combinedMap.values()));
 
@@ -118,11 +126,7 @@ export default function SearchResults() {
             }
         };
 
-        if (query) {
-            fetchResults();
-        } else {
-            setResults([]);
-        }
+        fetchResults();
     }, [query]);
 
     return (
@@ -138,7 +142,7 @@ export default function SearchResults() {
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold">Resultados da busca</h1>
                     <p className="text-muted-foreground mt-2">
-                        Exibindo {results.length} resultados para "{query}"
+                        {query ? `Exibindo ${results.length} resultados para "${query}"` : `Exibindo todos os ${results.length} parceiros`}
                     </p>
                 </div>
 

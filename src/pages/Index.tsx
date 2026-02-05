@@ -10,6 +10,13 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <header className="relative overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <img
+            src="/Image_fx.jpg"
+            alt="Background"
+            className="w-full h-full object-cover opacity-80"
+          />
+        </div>
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-violet-600 to-purple-600 opacity-10" />
         <div className="absolute top-20 left-10 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl" />
         <div className="absolute bottom-10 right-10 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl" />
@@ -34,7 +41,7 @@ const Index = () => {
             <span className="text-gradient-electric">Pick a Boo!</span>
           </h1>
 
-          <p className="text-lg text-muted-foreground mb-12 max-w-2xl">
+          <p className="text-lg text-white font-bold text-muted-foreground mb-12 max-w-2xl">
             O seu gerenciamento de tempo de uma forma que você nunca viu. Coordene, coopere e organize seu ecossistema!
             <br />
             <br />
