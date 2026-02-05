@@ -83,52 +83,23 @@ export default function Profile() {
         // Fetch Public Data
         const { data: publicData } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
 
-        // Fetch Private Data via RPC (Bypassing Table Cache)
-        const { data: privateData, error: privateError } = await supabase
-          .rpc('get_private_profile', { user_id_input: user.id });
+        // Fetch Private Data (From User Metadata now, for pure code solution)
+        const metadata = user.user_metadata || {};
 
         if (publicData) {
           setFullName(publicData.full_name || "");
           setClientType(publicData.user_type || "usuario");
           setProfession(publicData.profession || "");
           setCompanyName(publicData.company_name || "");
-          // City? It seems city was in profiles schema but not clearly used in state in previous file view?
-          // Checking line 15: ADD COLUMN IF NOT EXISTS city TEXT; in schema.
-          // Checking original Profile.tsx, looking at state...
-          // Ah, I don't see a "city" state in the top level states list provided in original file view?
-          // Wait, verify line 47: const [addresses, setAddresses]... newAddress has city.
-          // There is no top-level "city" state for the profile itself in the original snippet provided?
-          // Line 47: states...
-          // Lines 82-106: original load logic.
-          // It loaded phone, clientType, sex, gender, profession, companyName, cnpj.
-          // It did NOT load city into a top level state?
-          // Re-reading usage... Section "Company Specific" only uses companyName and cnpj.
-          // Section "My Data" uses fullName, email, phone, clientType.
-          // Section "Address" uses addresses array.
-          // Okay, so city is likely just in addresses or I missed it.
-          // Wait, the schema has `city`. The search results use `city`.
-          // If `city` is public, it stays in `profiles`. I should probably ensure it's handled if I missed it,
-          // but strictly speaking I am tasked with `profiles_private`.
         } else {
-          setFullName(user.user_metadata?.full_name || "");
+          setFullName(metadata.full_name || "");
         }
 
-        if (privateData) {
-          setPhone(privateData.phone || "");
-          setSex(privateData.sex || "");
-          setGender(privateData.gender || "");
-          setCnpj(privateData.cnpj || "");
-        } else {
-          // Fallback for migration phase or first load
-          // @ts-ignore
-          setPhone(user.user_metadata?.phone || "");
-          // @ts-ignore
-          setSex(user.user_metadata?.sex || "");
-          // @ts-ignore
-          setGender(user.user_metadata?.gender || "");
-          // @ts-ignore
-          setCnpj(user.user_metadata?.cnpj || "");
-        }
+        // Set private data from Metadata
+        setPhone(metadata.phone || "");
+        setSex(metadata.sex || "");
+        setGender(metadata.gender || "");
+        setCnpj(metadata.cnpj || "");
 
         // 2. Load Services from Table
         const { data: servicesData, error: servicesError } = await (supabase
@@ -198,40 +169,27 @@ export default function Profile() {
 
       if (publicError) throw publicError;
 
-      // 2. Update Private Profile
-      const privateUpdates = {
-        user_id: user.id,
-        phone,
-        sex,
-        gender,
-        cnpj,
-        updated_at: new Date().toISOString(),
-      };
-
-      // Upsert private data via RPC (Bypass Table Cache)
-      const { error: privateError } = await supabase
-        .rpc('upsert_private_profile', {
-          p_phone: phone,
-          p_cnpj: cnpj,
-          p_sex: sex,
-          p_gender: gender
-        });
-
-      if (privateError) throw privateError;
-
-      // 3. Update User Metadata (Only for Addresses and Cards now)
-      // We keep others in metadata as backup/read-only or for session ease
+      // 2. Update Private Data in User Metadata (Secure & Code-Only Solution)
+      // We are moving away from the private table due to persistent schema cache errors.
+      // Metadata is secure (only user can update own) and accessible.
       const { error: metadataError } = await supabase.auth.updateUser({
         data: {
           full_name: fullName,
-          // phone, // Don't sync sensitive data to metadata if we can avoid it, but Auth needs phone sometimes?
-          // Actually, let's keep metadata minimal to match security goal.
           user_type: clientType,
           company_name: companyName,
+          phone,
+          sex,
+          gender,
+          cnpj,
           addresses: addresses,
           payment_methods: cards
         }
       });
+
+      if (metadataError) throw metadataError;
+
+      toast.success("Dados do perfil salvos com sucesso!");
+      setIsEditing(false);
 
       if (metadataError) throw metadataError;
 
