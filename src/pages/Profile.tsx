@@ -159,15 +159,33 @@ export default function Profile() {
         user_type: clientType,
         profession,
         company_name: companyName,
+        phone,
+        sex,
+        gender,
+        cnpj,
         updated_at: new Date().toISOString(),
       };
 
-      const { error: publicError } = await supabase
+      // Try UPDATE first (as requested)
+      const { data: updatedData, error: updateError } = await supabase
         .from('profiles')
         .update(publicUpdates)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select();
 
-      if (publicError) throw publicError;
+      if (updateError) throw updateError;
+
+      // If no row existed to update, Perform INSERT
+      if (!updatedData || updatedData.length === 0) {
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            user_id: user.id,
+            ...publicUpdates
+          });
+
+        if (insertError) throw insertError;
+      }
 
       // 2. Update Private Data in User Metadata (Secure & Code-Only Solution)
       // We are moving away from the private table due to persistent schema cache errors.
