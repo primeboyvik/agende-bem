@@ -323,30 +323,30 @@ export default function Profile() {
   };
 
   const cancelEditing = () => {
-    setEditingServiceId(null);
-    setNewService({ name: "", price: "", description: "", image: "" });
   };
 
   const handleRemoveService = async (id: any) => {
-    console.log("Attempting to delete service with ID:", id);
+    console.log("Attempting to delete service via RPC with ID:", id);
     try {
-      // 1. Always attempt to delete from DB first if it looks ANYthing like a string ID
-      if (id && typeof id === 'string') {
-        const { error, count } = await (supabase.from('services') as any)
-          .delete({ count: 'exact' })
-          .eq('id', id);
+      if (!id) return;
 
-        console.log("Delete result:", { error, count });
+      // Use RPC (Remote Procedure Call) for robust deletion
+      const { data, error } = await supabase.rpc('delete_own_service', {
+        p_service_id: String(id)
+      });
 
-        if (error) {
-          console.error("Supabase delete error:", error);
-          throw error;
-        }
+      console.log("RPC Delete result:", { data, error });
+
+      if (error) throw error;
+
+      // Check the returned JSON logic
+      if (data && (data as any).success === false) {
+        throw new Error((data as any).error || "Failed to delete");
       }
 
-      // 2. Update local state
+      // Update local state
       setMyServices(prev => prev.filter(s => s.id !== id));
-      toast.success("Serviço removido");
+      toast.success("Serviço removido com sucesso!");
     } catch (error: any) {
       console.error("Delete function error:", error);
       toast.error("Erro ao remover: " + (error.message || "Erro desconhecido"));
