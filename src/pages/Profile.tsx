@@ -307,23 +307,20 @@ export default function Profile() {
   };
 
   const handleRemoveService = async (id: any) => {
-    console.log("Attempting to delete service via RPC with ID:", id);
+    console.log("Attempting to delete service with ID:", id);
     try {
       if (!id) return;
 
-      // Use RPC (Remote Procedure Call) for robust deletion
-      const { data, error } = await supabase.rpc('delete_own_service', {
-        p_service_id: String(id)
-      });
+      const { error } = await supabase
+        .from('services')
+        .delete()
+        .eq('id', id);
 
-      console.log("RPC Delete result:", { data, error });
+      console.log("Delete result:", { error });
 
       if (error) throw error;
 
-      // Check the returned JSON logic
-      if (data && (data as any).success === false) {
-        throw new Error((data as any).error || "Failed to delete");
-      }
+      // Removal succeeded
 
       // Update local state
       setMyServices(prev => prev.filter(s => s.id !== id));
