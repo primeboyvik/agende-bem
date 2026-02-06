@@ -7,15 +7,6 @@ import { Navbar } from "@/components/Navbar";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-// Types for search results
-interface ServiceResult {
-    id: string;
-    title: string;
-    description?: string;
-    price: number;
-    user_id: string;
-}
-
 interface ProfileResult {
     user_id: string;
     full_name?: string;
@@ -33,27 +24,14 @@ export default function SearchResults() {
     const [results, setResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
-    const [debugError, setDebugError] = useState<any>(null);
-    const [userInfo, setUserInfo] = useState<any>(null);
-
     useEffect(() => {
-        // Check Auth State for Debugging
-        supabase.auth.getSession().then(({ data }) => {
-            setUserInfo(data.session?.user ? { role: data.session.user.role, id: data.session.user.id } : "No Session");
-        });
-
         const fetchResults = async () => {
             setLoading(true);
-            setDebugError(null);
             try {
-                let companyMatches: any[] = [];
-                let profileDetails: any[] = [];
-                let serviceMatches: ServiceResult[] = [];
-
-                // 1. Fetch Companies from profiles where user_type = 'empresa'
+                // Use the public view that excludes PII
                 let companyQuery = supabase
-                    .from('profiles')
-                    .select('user_id, company_name, full_name, city, profession, user_type, cnpj')
+                    .from('profiles_public')
+                    .select('user_id, company_name, full_name, city, profession, user_type')
                     .eq('user_type', 'empresa');
 
                 if (query) {
@@ -61,39 +39,18 @@ export default function SearchResults() {
                 }
 
                 const { data: companies, error: companyError } = await companyQuery;
-                if (companyError) {
-                    console.error("Error fetching companies:", companyError);
-                    throw companyError;
-                }
+                if (companyError) throw companyError;
 
-                companyMatches = companies || [];
-
-                // 2. Profile details already fetched above
+                const companyMatches = companies || [];
                 const companyUserIds = companyMatches.map((c: any) => c.user_id);
-                profileDetails = companyMatches;
 
-                // 3. Search in Services (if query exists)
-                if (query) {
-                    const { data: services, error: serviceError } = await supabase
-                        .from('services')
-                        .select('id, title, description, price, user_id, image_url')
-                        .or(`title.ilike.%${query}%,description.ilike.%${query}%`);
-
-                    if (!serviceError && services) {
-                        serviceMatches = services;
-                    }
-                }
-
-                // 4. Combine Results
                 const combinedMap = new Map();
 
-                // Add Company Matches first
                 companyMatches.forEach((company: any) => {
                     combinedMap.set(company.user_id, {
                         id: company.user_id,
                         name: company.company_name || company.full_name || "Empresa",
                         type: 'empresa',
-                        cnpj: company.cnpj,
                         rating: 4.8,
                         address: company.city || "Localização não informada",
                         description: company.profession || "Prestador de Serviços",
@@ -102,12 +59,6 @@ export default function SearchResults() {
                     });
                 });
 
-                // Add Service Matches (checking if we need to fetch missing parent profiles)
-                // Note: For simplicity, we are assuming service providers SHOULD be in 'companys' or 'profiles'. 
-                // Since user wants 'companys' to be the list, we focus on that. 
-                // Use services to populate the 'services' array of the company.
-
-                // Fetch all services for the found companies to display as tags
                 if (companyUserIds.length > 0) {
                     const { data: allServices } = await supabase
                         .from('services')
@@ -130,8 +81,7 @@ export default function SearchResults() {
 
             } catch (error) {
                 console.error("Search error:", error);
-                setDebugError(error);
-                toast.error("Erro ao buscar resultados: " + (error as any).message);
+                toast.error("Erro ao buscar resultados. Por favor, tente novamente.");
             } finally {
                 setLoading(false);
             }
@@ -155,16 +105,6 @@ export default function SearchResults() {
                     <p className="text-muted-foreground mt-2">
                         {query ? `Exibindo ${results.length} resultados para "${query}"` : `Exibindo todos os ${results.length} parceiros`}
                     </p>
-                </div>
-
-                {/* DEBUG SECTION - REMOVE AFTER FIXING */}
-                <div className="bg-slate-100 p-4 rounded mb-4 text-xs font-mono overflow-auto max-h-60 border border-red-500">
-                    <p className="font-bold text-red-600">DEBUG INFO:</p>
-                    <p>Loading: {loading.toString()}</p>
-                    <p>User: {JSON.stringify(userInfo)}</p>
-                    <p>Results Count: {results.length}</p>
-                    {debugError && <p className="text-red-600 font-bold">ERROR: {JSON.stringify(debugError, null, 2)}</p>}
-                    <p>Sample Result: {JSON.stringify(results[0], null, 2)}</p>
                 </div>
 
                 {loading ? (

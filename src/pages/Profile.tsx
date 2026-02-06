@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { LogOut, User as UserIcon, Loader2, ArrowLeft, Calendar, Save, Building2, Briefcase, MapPin, CreditCard, LayoutDashboard, Plus, Trash, Clock, Pencil, X } from "lucide-react";
+import { LogOut, User as UserIcon, Loader2, ArrowLeft, Save, Building2, Briefcase, MapPin, LayoutDashboard, Plus, Trash, Clock, Pencil, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -27,7 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
 import { lovable } from "@/integrations/lovable";
 
-type ProfileTab = "data" | "address" | "payment" | "services";
+type ProfileTab = "data" | "address" | "services";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -55,7 +55,7 @@ export default function Profile() {
 
   // -- COMPLEX DATA STATES --
   const [addresses, setAddresses] = useState<any[]>([]);
-  const [cards, setCards] = useState<any[]>([]);
+  
   const [myServices, setMyServices] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<ProfileTab>("data");
   const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
@@ -64,7 +64,7 @@ export default function Profile() {
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [newService, setNewService] = useState({ name: "", price: "", description: "", image: "" });
   const [newAddress, setNewAddress] = useState({ street: "", city: "", zip: "" });
-  const [newCard, setNewCard] = useState({ number: "", holder: "", expiry: "" });
+  
 
   // Availability
   const defaultAvailability = {
@@ -121,9 +121,8 @@ export default function Profile() {
           setMyServices(user.user_metadata?.services || []);
         }
 
-        // 3. Load Arrays from Metadata (Addresses/Cards)
+        // 3. Load Addresses from Metadata
         setAddresses(user.user_metadata?.addresses || []);
-        setCards(user.user_metadata?.payment_methods || []);
       };
 
       loadProfile();
@@ -348,21 +347,11 @@ export default function Profile() {
     setNewAddress({ street: "", city: "", zip: "" });
   };
 
-  const addCard = () => {
-    if (!newCard.number) return;
-    setCards([...cards, { ...newCard, last4: newCard.number.slice(-4), id: Date.now() }]);
-    setNewCard({ number: "", holder: "", expiry: "" });
-  };
 
   const removeAddress = async (id: any) => {
     setAddresses(addresses.filter(a => a.id !== id));
-    // Metadata only
   };
 
-  const removeCard = async (id: any) => {
-    setCards(cards.filter(c => c.id !== id));
-    // Metadata only
-  };
 
 
   if (isLoading) {
@@ -587,13 +576,6 @@ export default function Profile() {
             >
               <MapPin className="w-4 h-4 mr-2" /> Endereços
             </Button>
-            <Button
-              variant={activeTab === "payment" ? "secondary" : "ghost"}
-              className="w-full justify-start"
-              onClick={() => setActiveTab("payment")}
-            >
-              <CreditCard className="w-4 h-4 mr-2" /> Pagamento
-            </Button>
             {(clientType === "empresa" || clientType === "prestador") && (
               <Button
                 variant={activeTab === "services" ? "secondary" : "ghost"}
@@ -723,35 +705,6 @@ export default function Profile() {
                 </div>
               )}
 
-              {/* TAB: PAYMENT */}
-              {activeTab === "payment" && (
-                <div className="space-y-6">
-                  <h2 className="text-xl font-bold">Métodos de Pagamento</h2>
-                  <div className="grid gap-4">
-                    {cards.map((card) => (
-                      <Card key={card.id} className="p-4 flex justify-between items-center bg-gradient-to-r from-slate-900 to-slate-800 text-white">
-                        <div className="flex items-center gap-3">
-                          <CreditCard className="w-6 h-6" />
-                          <div>
-                            <p className="font-medium">•••• •••• •••• {card.last4 || card.card_last4}</p>
-                            <p className="text-xs opacity-70">{card.holder || card.card_holder}</p>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300"><Trash className="w-4 h-4" onClick={() => removeCard(card.id)} /></Button>
-                      </Card>
-                    ))}
-                  </div>
-                  <div className="p-4 border border-dashed rounded-lg space-y-3">
-                    <h3 className="text-sm font-medium">Adicionar Novo Cartão</h3>
-                    <Input placeholder="Número do Cartão" value={newCard.number} onChange={e => setNewCard({ ...newCard, number: e.target.value })} />
-                    <div className="flex gap-2">
-                      <Input placeholder="Nome no Cartão" value={newCard.holder} onChange={e => setNewCard({ ...newCard, holder: e.target.value })} />
-                      <Input placeholder="Validade (MM/AA)" value={newCard.expiry} onChange={e => setNewCard({ ...newCard, expiry: e.target.value })} />
-                    </div>
-                    <Button size="sm" onClick={addCard}><Plus className="w-4 h-4 mr-2" /> Adicionar</Button>
-                  </div>
-                </div>
-              )}
 
               {/* TAB: SERVICES */}
               {activeTab === "services" && (

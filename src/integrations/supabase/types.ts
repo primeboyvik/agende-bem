@@ -199,6 +199,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
           },
+          {
+            foreignKeyName: "services_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       user_roles: {
@@ -221,7 +228,33 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      profiles_public: {
+        Row: {
+          city: string | null
+          company_name: string | null
+          full_name: string | null
+          profession: string | null
+          user_id: string | null
+          user_type: string | null
+        }
+        Insert: {
+          city?: string | null
+          company_name?: string | null
+          full_name?: string | null
+          profession?: string | null
+          user_id?: string | null
+          user_type?: string | null
+        }
+        Update: {
+          city?: string | null
+          company_name?: string | null
+          full_name?: string | null
+          profession?: string | null
+          user_id?: string | null
+          user_type?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {

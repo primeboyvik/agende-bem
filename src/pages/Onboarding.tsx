@@ -8,10 +8,13 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { Loader2, ArrowRight, User, Building2, Briefcase } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Onboarding() {
     const navigate = useNavigate();
-    const [isLoading, setIsLoading] = useState(false);
+    const { user, profile, isLoading } = useAuth();
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Form State
     const [fullName, setFullName] = useState("");
@@ -19,36 +22,54 @@ export default function Onboarding() {
     const [clientType, setClientType] = useState<"usuario" | "empresa" | "prestador">("usuario");
 
     useEffect(() => {
-        // Pre-fill name if available from signup
-        const storedName = localStorage.getItem("user_name");
-        if (storedName) setFullName(storedName);
-
-        // Security check: if not logged in, redirect to login
-        if (!localStorage.getItem("mock_session")) {
+        if (!isLoading && !user) {
             navigate("/perfil");
         }
-    }, [navigate]);
+    }, [isLoading, user, navigate]);
+
+    useEffect(() => {
+        if (profile) {
+            setFullName(profile.full_name || user?.user_metadata?.full_name || "");
+        } else if (user) {
+            setFullName(user.user_metadata?.full_name || "");
+        }
+    }, [profile, user]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
+        if (!user) return;
+        setIsSubmitting(true);
 
-        // Simulate API call
-        setTimeout(() => {
-            localStorage.setItem("user_name", fullName);
-            localStorage.setItem("user_phone", phone);
-            localStorage.setItem("user_type", clientType);
-            localStorage.setItem("onboarding_complete", "true");
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({
+                    full_name: fullName,
+                    phone,
+                    user_type: clientType,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('user_id', user.id);
+
+            if (error) throw error;
 
             toast.success("Cadastro concluído com sucesso!");
-
-            // Check return URL or default to home/profile
             const returnUrl = new URLSearchParams(window.location.search).get("returnUrl");
             navigate(returnUrl || "/perfil");
-
-            setIsLoading(false);
-        }, 1000);
+        } catch (error: any) {
+            toast.error("Erro ao salvar dados: " + error.message);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-background flex flex-col">
@@ -147,9 +168,9 @@ export default function Onboarding() {
                             <Button
                                 type="submit"
                                 className="w-full bg-gradient-electric hover:opacity-90 text-primary-foreground font-semibold shadow-electric h-12 text-lg"
-                                disabled={isLoading}
+                                disabled={isSubmitting}
                             >
-                                {isLoading ? (
+                                {isSubmitting ? (
                                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                                 ) : (
                                     <>
