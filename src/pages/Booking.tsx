@@ -62,7 +62,7 @@ const Booking = () => {
 
       try {
         const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
+          .from('profiles_public')
           .select('user_id, full_name, company_name, city, profession')
           .eq('user_id', companyId)
           .maybeSingle();
