@@ -1,9 +1,13 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Clock, MapPin, User, Building2, Loader2 } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, MapPin, User, Building2, Loader2 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { ptBR } from "date-fns/locale";
+import { BigCalendar } from "@/components/dashboard/BigCalendar";
 
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -11,6 +15,37 @@ export default function Dashboard() {
 
     const userType = profile?.user_type || "usuario";
     const userName = profile?.full_name || user?.email || "Usuário";
+
+    // Fetch user appointments
+    const { data: appointments } = useQuery({
+        queryKey: ['dashboard-appointments', user?.id],
+        queryFn: async () => {
+            if (!user?.id) return [];
+
+            // Check if user is a client (user_id = client_id) OR provider (user_id = provider_id/service owner)
+            const { data, error } = await supabase
+                .from('appointments')
+                .select('*, client:profiles!client_id(full_name), service:services(title)')
+                .eq('client_id', user.id);
+            // Note: The select above includes joined data for better display in BigCalendar
+
+            if (error) throw error;
+
+            // Transform data to match expectations if needed, or rely on loose typing
+            return data.map(app => ({
+                ...app,
+                client: { name: app.client?.full_name || 'Cliente' },
+                service: { title: app.service?.title || 'Serviço' }
+            })) || [];
+        },
+        enabled: !!user?.id
+    });
+
+    // Extract dates for highlighting (Not used anymore as we removed small calendar)
+    // const appointmentDates = appointments?.map(app => {
+    //      const datePart = app.appointment_date.split('T')[0]; 
+    //      return new Date(datePart + 'T12:00:00'); 
+    // }) || [];
 
     if (isLoading) {
         return (
@@ -21,9 +56,9 @@ export default function Dashboard() {
     }
 
     const MockAppointment = () => (
-        <Card className="p-6 border-none shadow-electric bg-white/50 backdrop-blur-sm">
+        <Card className="p-6 border-none shadow-electric bg-white/50 backdrop-blur-sm h-full flex flex-col justify-between">
             <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
+                <CalendarIcon className="w-5 h-5 text-primary" />
                 Seu Próximo Agendamento
             </h3>
             <div className="space-y-4">
@@ -54,9 +89,9 @@ export default function Dashboard() {
     );
 
     const MockCommitment = () => (
-        <Card className="p-6 border-none shadow-electric bg-white/50 backdrop-blur-sm">
+        <Card className="p-6 border-none shadow-electric bg-white/50 backdrop-blur-sm h-full flex flex-col justify-between">
             <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
+                <CalendarIcon className="w-5 h-5 text-primary" />
                 Seu Próximo Compromisso
             </h3>
             <div className="space-y-4">
@@ -88,7 +123,7 @@ export default function Dashboard() {
     );
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-background pb-10">
             <Navbar />
             <div className="p-6 pt-10">
                 <div className="max-w-4xl mx-auto space-y-8">
@@ -106,27 +141,46 @@ export default function Dashboard() {
                         </Button>
                     </div>
 
+                    {/* Top Row: Next Appointment and Quick Actions Side-by-Side */}
                     <div className="grid md:grid-cols-2 gap-6">
-                        {(userType === "empresa" || userType === "prestador") ? (
-                            <MockCommitment />
-                        ) : (
-                            <MockAppointment />
-                        )}
+                        {/* Left: Next Appointment/Commitment */}
+                        <div>
+                            {(userType === "empresa" || userType === "prestador") ? (
+                                <MockCommitment />
+                            ) : (
+                                <MockAppointment />
+                            )}
+                        </div>
 
-                        {/* Stats or Quick Actions Card */}
-                        <Card className="p-6 border-none shadow-sm bg-white/50 backdrop-blur-sm">
-                            <h3 className="text-xl font-semibold mb-4">Acesso Rápido</h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <Button variant="ghost" className="h-auto py-4 flex flex-col gap-2 border border-border/50 hover:bg-primary/5 hover:border-primary/50 transition-all">
-                                    <User className="w-8 h-8 text-primary" />
-                                    <span>Meu Perfil</span>
-                                </Button>
-                                <Button variant="ghost" className="h-auto py-4 flex flex-col gap-2 border border-border/50 hover:bg-primary/5 hover:border-primary/50 transition-all">
-                                    <Clock className="w-8 h-8 text-primary" />
-                                    <span>Histórico</span>
-                                </Button>
-                            </div>
-                        </Card>
+                        {/* Right: Quick Actions */}
+                        <div>
+                            <Card className="p-6 border-none shadow-sm bg-white/50 backdrop-blur-sm h-full">
+                                <h3 className="text-xl font-semibold mb-4">Acesso Rápido</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Button variant="ghost" className="h-auto py-4 flex flex-col gap-2 border border-border/50 hover:bg-primary/5 hover:border-primary/50 transition-all">
+                                        <User className="w-8 h-8 text-primary" />
+                                        <span>Meu Perfil</span>
+                                    </Button>
+                                    <Button variant="ghost" className="h-auto py-4 flex flex-col gap-2 border border-border/50 hover:bg-primary/5 hover:border-primary/50 transition-all">
+                                        <Clock className="w-8 h-8 text-primary" />
+                                        <span>Histórico</span>
+                                    </Button>
+                                    <Button variant="ghost" className="h-auto py-4 flex flex-col gap-2 border border-border/50 hover:bg-primary/5 hover:border-primary/50 transition-all" onClick={() => navigate("/search")}>
+                                        <MapPin className="w-8 h-8 text-primary" />
+                                        <span>Explorar</span>
+                                    </Button>
+                                </div>
+                            </Card>
+                        </div>
+                    </div>
+
+                    {/* Bottom Row: Full Width Calendar */}
+                    <div className="mt-8">
+                        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                            <CalendarIcon className="w-5 h-5 text-primary" />
+                            Sua Agenda
+                        </h3>
+                        <BigCalendar appointments={appointments || []} />
                     </div>
                 </div>
             </div>
