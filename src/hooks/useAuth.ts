@@ -6,6 +6,14 @@ interface Profile {
   id: string;
   user_id: string;
   full_name: string | null;
+  phone: string | null;
+  user_type: string | null;
+  gender: string | null;
+  sex: string | null;
+  profession: string | null;
+  company_name: string | null;
+  cnpj: string | null;
+  city: string | null;
   created_at: string;
   updated_at: string;
 }

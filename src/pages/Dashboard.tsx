@@ -1,23 +1,24 @@
-import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Clock, MapPin, User, Building2 } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { Calendar, Clock, MapPin, User, Building2, Loader2 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Dashboard() {
     const navigate = useNavigate();
-    const [userType, setUserType] = useState("usuario");
-    const [userName, setUserName] = useState("");
+    const { user, profile, isLoading } = useAuth();
 
-    useEffect(() => {
-        const storedType = localStorage.getItem("user_type") || "usuario";
-        const storedName = localStorage.getItem("user_name") || "Usuário";
-        setUserType(storedType);
-        setUserName(storedName);
-    }, []);
+    const userType = profile?.user_type || "usuario";
+    const userName = profile?.full_name || user?.email || "Usuário";
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     const MockAppointment = () => (
         <Card className="p-6 border-none shadow-electric bg-white/50 backdrop-blur-sm">

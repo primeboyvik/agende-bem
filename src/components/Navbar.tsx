@@ -7,36 +7,25 @@ import {
     SheetContent,
     SheetTrigger,
 } from '@/components/ui/sheet';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Logo from '@/Logo.png';
 import Mascote from '@/Mascote_Boo.svg';
+import { useAuth } from '@/hooks/useAuth';
 
 export const Navbar = () => {
     const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [userPhoto, setUserPhoto] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
 
-    // Mock Auth Check
-    useEffect(() => {
-        const checkAuth = () => {
-            const mockSession = localStorage.getItem("mock_session");
-            setIsLoggedIn(!!mockSession);
-            setUserPhoto(localStorage.getItem("user_photo"));
-        };
-
-        checkAuth();
-
-        window.addEventListener('storage', checkAuth);
-        return () => window.removeEventListener('storage', checkAuth);
-    }, []);
+    const { user, profile } = useAuth();
+    const isLoggedIn = !!user;
+    const userPhoto = user?.user_metadata?.avatar_url || null;
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
         if (searchQuery.trim()) {
             navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
-            setIsOpen(false); // Close mobile sheet if open
+            setIsOpen(false);
         }
     };
 
@@ -48,7 +37,9 @@ export const Navbar = () => {
                         {userPhoto ? (
                             <img src={userPhoto} alt="Profile" className="w-full h-full object-cover" />
                         ) : (
-                            <span className="font-bold text-electric-blue">U</span>
+                            <span className="font-bold text-electric-blue">
+                                {(profile?.full_name || user?.email || "U").charAt(0).toUpperCase()}
+                            </span>
                         )}
                     </div>
                 </div>
@@ -68,8 +59,6 @@ export const Navbar = () => {
                 <img src={Logo} alt="Logo Boo" className="h-8 w-auto" />
                 <span className="text-2xl font-bold text-gradient-electric"></span>
             </div>
-
-            {/* Scale up width to accommodate search bar */}
 
             {/* Search Bar - Desktop */}
             <div className="hidden md:flex flex-1 max-w-md mx-8">
