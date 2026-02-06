@@ -92,26 +92,22 @@ export default function Profile() {
     if (user) {
       // 1. Load Profile Data (Public & Private)
       const loadProfile = async () => {
-        // Fetch Public Data
+        // Fetch Profile Data (all fields stored in profiles table, not metadata)
         const { data: publicData } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
-
-        // Fetch Private Data (From User Metadata now, for pure code solution)
-        const metadata = user.user_metadata || {};
 
         if (publicData) {
           setFullName(publicData.full_name || "");
           setClientType(publicData.user_type || "usuario");
           setProfession(publicData.profession || "");
           setCompanyName(publicData.company_name || "");
+          setPhone(publicData.phone || "");
+          setSex(publicData.sex || "");
+          setGender(publicData.gender || "");
+          setCnpj(publicData.cnpj || "");
         } else {
+          const metadata = user.user_metadata || {};
           setFullName(metadata.full_name || "");
         }
-
-        // Set private data from Metadata
-        setPhone(metadata.phone || "");
-        setSex(metadata.sex || "");
-        setGender(metadata.gender || "");
-        setCnpj(metadata.cnpj || "");
 
         // 2. Load Services from Table
         const { data: servicesData, error: servicesError } = await supabase
@@ -219,27 +215,13 @@ export default function Profile() {
         }
       }
 
-      // 2. Update Private Data in User Metadata (Secure & Code-Only Solution)
-      // We are moving away from the private table due to persistent schema cache errors.
-      // Metadata is secure (only user can update own) and accessible.
+      // 2. Sync basic non-sensitive info to metadata (for display name only)
       const { error: metadataError } = await supabase.auth.updateUser({
         data: {
           full_name: fullName,
           user_type: clientType,
-          company_name: companyName,
-          phone,
-          sex,
-          gender,
-          cnpj,
-          addresses: addresses,
-          payment_methods: cards
         }
       });
-
-      if (metadataError) throw metadataError;
-
-      toast.success("Dados do perfil salvos com sucesso!");
-      setIsEditing(false);
 
       if (metadataError) throw metadataError;
 
