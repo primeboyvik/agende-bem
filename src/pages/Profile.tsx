@@ -114,9 +114,9 @@ export default function Profile() {
         setCnpj(metadata.cnpj || "");
 
         // 2. Load Services from Table
-        const { data: servicesData, error: servicesError } = await (supabase
+        const { data: servicesData, error: servicesError } = await supabase
           .from('services')
-          .select('*') as any)
+          .select('*')
           .eq('user_id', user.id);
 
         if (servicesData && servicesData.length > 0) {
@@ -208,9 +208,10 @@ export default function Profile() {
           updated_at: new Date().toISOString()
         };
 
-        const { error: companyError } = await (supabase
-          .from('companys') as any)
-          .upsert(companyPayload, { onConflict: 'user_id' });
+        const { error: companyError } = await supabase
+          .from('profiles')
+          .update({ company_name: companyName, cnpj: cnpj, updated_at: new Date().toISOString() })
+          .eq('user_id', user.id);
 
         if (companyError) {
           console.error("Error syncing to companys table:", companyError);
@@ -273,16 +274,15 @@ export default function Profile() {
     try {
       const payload = {
         user_id: user!.id,
-        service_name: newService.name,
+        title: newService.name,
         description: newService.description,
-        valor: parseFloat(newService.price) || 0,
+        price: parseFloat(newService.price) || 0,
         image_url: newService.image,
-        company_name: companyName || fullName, // Saving company name for easier display
       };
 
       if (editingServiceId) {
         // UPDATE Existing Service
-        const { error } = await (supabase.from('services') as any)
+        const { error } = await supabase.from('services')
           .update(payload)
           .eq('id', editingServiceId);
 
@@ -293,7 +293,7 @@ export default function Profile() {
         toast.success("Serviço atualizado!");
       } else {
         // CREATE New Service
-        const { data, error } = await (supabase.from('services') as any).insert(payload).select().single();
+        const { data, error } = await supabase.from('services').insert(payload).select().single();
         if (error) throw error;
 
         setMyServices([...myServices, data]);
@@ -312,8 +312,8 @@ export default function Profile() {
   const startEditingService = (service: any) => {
     setEditingServiceId(service.id);
     setNewService({
-      name: service.service_name || service.title || service.name,
-      price: (service.valor || service.price || 0).toString(),
+      name: service.title || service.name,
+      price: (service.price || 0).toString(),
       description: service.description || "",
       image: service.image_url || service.image || ""
     });
@@ -332,7 +332,7 @@ export default function Profile() {
     try {
       // 1. Always attempt to delete from DB first if it looks ANYthing like a string ID
       if (id && typeof id === 'string') {
-        const { error, count } = await (supabase.from('services') as any)
+        const { error, count } = await supabase.from('services')
           .delete({ count: 'exact' })
           .eq('id', id);
 
