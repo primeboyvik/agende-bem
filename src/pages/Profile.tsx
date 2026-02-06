@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { LogOut, User as UserIcon, Loader2, ArrowLeft, Calendar, Save, Building2, Briefcase, MapPin, CreditCard, LayoutDashboard, Plus, Trash, Clock, Pencil, X } from "lucide-react";
+import { LogOut, User as UserIcon, Loader2, ArrowLeft, Save, Building2, Briefcase, MapPin, LayoutDashboard, Plus, Trash, Clock, Pencil, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -27,7 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
 import { lovable } from "@/integrations/lovable";
 
-type ProfileTab = "data" | "address" | "payment" | "services";
+type ProfileTab = "data" | "address" | "services";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -55,7 +55,7 @@ export default function Profile() {
 
   // -- COMPLEX DATA STATES --
   const [addresses, setAddresses] = useState<any[]>([]);
-  const [cards, setCards] = useState<any[]>([]);
+  
   const [myServices, setMyServices] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<ProfileTab>("data");
   const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
@@ -64,7 +64,7 @@ export default function Profile() {
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [newService, setNewService] = useState({ name: "", price: "", description: "", image: "" });
   const [newAddress, setNewAddress] = useState({ street: "", city: "", zip: "" });
-  const [newCard, setNewCard] = useState({ number: "", holder: "", expiry: "" });
+  
 
   // Availability
   const defaultAvailability = {
@@ -92,31 +92,27 @@ export default function Profile() {
     if (user) {
       // 1. Load Profile Data (Public & Private)
       const loadProfile = async () => {
-        // Fetch Public Data
+        // Fetch Profile Data (all fields stored in profiles table, not metadata)
         const { data: publicData } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
-
-        // Fetch Private Data (From User Metadata now, for pure code solution)
-        const metadata = user.user_metadata || {};
 
         if (publicData) {
           setFullName(publicData.full_name || "");
           setClientType(publicData.user_type || "usuario");
           setProfession(publicData.profession || "");
           setCompanyName(publicData.company_name || "");
+          setPhone(publicData.phone || "");
+          setSex(publicData.sex || "");
+          setGender(publicData.gender || "");
+          setCnpj(publicData.cnpj || "");
         } else {
+          const metadata = user.user_metadata || {};
           setFullName(metadata.full_name || "");
         }
 
-        // Set private data from Metadata
-        setPhone(metadata.phone || "");
-        setSex(metadata.sex || "");
-        setGender(metadata.gender || "");
-        setCnpj(metadata.cnpj || "");
-
         // 2. Load Services from Table
-        const { data: servicesData, error: servicesError } = await (supabase
+        const { data: servicesData, error: servicesError } = await supabase
           .from('services')
-          .select('*') as any)
+          .select('*')
           .eq('user_id', user.id);
 
         if (servicesData && servicesData.length > 0) {
@@ -125,9 +121,8 @@ export default function Profile() {
           setMyServices(user.user_metadata?.services || []);
         }
 
-        // 3. Load Arrays from Metadata (Addresses/Cards)
+        // 3. Load Addresses from Metadata
         setAddresses(user.user_metadata?.addresses || []);
-        setCards(user.user_metadata?.payment_methods || []);
       };
 
       loadProfile();
@@ -208,9 +203,10 @@ export default function Profile() {
           updated_at: new Date().toISOString()
         };
 
-        const { error: companyError } = await (supabase
-          .from('companys') as any)
-          .upsert(companyPayload, { onConflict: 'user_id' });
+        const { error: companyError } = await supabase
+          .from('profiles')
+          .update({ company_name: companyName, cnpj: cnpj, updated_at: new Date().toISOString() })
+          .eq('user_id', user.id);
 
         if (companyError) {
           console.error("Error syncing to companys table:", companyError);
@@ -218,27 +214,13 @@ export default function Profile() {
         }
       }
 
-      // 2. Update Private Data in User Metadata (Secure & Code-Only Solution)
-      // We are moving away from the private table due to persistent schema cache errors.
-      // Metadata is secure (only user can update own) and accessible.
+      // 2. Sync basic non-sensitive info to metadata (for display name only)
       const { error: metadataError } = await supabase.auth.updateUser({
         data: {
           full_name: fullName,
           user_type: clientType,
-          company_name: companyName,
-          phone,
-          sex,
-          gender,
-          cnpj,
-          addresses: addresses,
-          payment_methods: cards
         }
       });
-
-      if (metadataError) throw metadataError;
-
-      toast.success("Dados do perfil salvos com sucesso!");
-      setIsEditing(false);
 
       if (metadataError) throw metadataError;
 
@@ -273,16 +255,15 @@ export default function Profile() {
     try {
       const payload = {
         user_id: user!.id,
-        service_name: newService.name,
+        title: newService.name,
         description: newService.description,
-        valor: parseFloat(newService.price) || 0,
+        price: parseFloat(newService.price) || 0,
         image_url: newService.image,
-        company_name: companyName || fullName, // Saving company name for easier display
       };
 
       if (editingServiceId) {
         // UPDATE Existing Service
-        const { error } = await (supabase.from('services') as any)
+        const { error } = await supabase.from('services')
           .update(payload)
           .eq('id', editingServiceId);
 
@@ -293,7 +274,7 @@ export default function Profile() {
         toast.success("Serviço atualizado!");
       } else {
         // CREATE New Service
-        const { data, error } = await (supabase.from('services') as any).insert(payload).select().single();
+        const { data, error } = await supabase.from('services').insert(payload).select().single();
         if (error) throw error;
 
         setMyServices([...myServices, data]);
@@ -312,8 +293,8 @@ export default function Profile() {
   const startEditingService = (service: any) => {
     setEditingServiceId(service.id);
     setNewService({
-      name: service.service_name || service.title || service.name,
-      price: (service.valor || service.price || 0).toString(),
+      name: service.title || service.name,
+      price: (service.price || 0).toString(),
       description: service.description || "",
       image: service.image_url || service.image || ""
     });
@@ -328,7 +309,15 @@ export default function Profile() {
   const handleRemoveService = async (id: any) => {
     console.log("Attempting to delete service via RPC with ID:", id);
     try {
+<<<<<<< HEAD
       if (!id) return;
+=======
+      // 1. Always attempt to delete from DB first if it looks ANYthing like a string ID
+      if (id && typeof id === 'string') {
+        const { error, count } = await supabase.from('services')
+          .delete({ count: 'exact' })
+          .eq('id', id);
+>>>>>>> e368b51d9f5bdac05fcf4a8d78a3199b515a74bd
 
       // Use RPC (Remote Procedure Call) for robust deletion
       const { data, error } = await supabase.rpc('delete_own_service', {
@@ -366,21 +355,11 @@ export default function Profile() {
     setNewAddress({ street: "", city: "", zip: "" });
   };
 
-  const addCard = () => {
-    if (!newCard.number) return;
-    setCards([...cards, { ...newCard, last4: newCard.number.slice(-4), id: Date.now() }]);
-    setNewCard({ number: "", holder: "", expiry: "" });
-  };
 
   const removeAddress = async (id: any) => {
     setAddresses(addresses.filter(a => a.id !== id));
-    // Metadata only
   };
 
-  const removeCard = async (id: any) => {
-    setCards(cards.filter(c => c.id !== id));
-    // Metadata only
-  };
 
 
   if (isLoading) {
@@ -605,13 +584,6 @@ export default function Profile() {
             >
               <MapPin className="w-4 h-4 mr-2" /> Endereços
             </Button>
-            <Button
-              variant={activeTab === "payment" ? "secondary" : "ghost"}
-              className="w-full justify-start"
-              onClick={() => setActiveTab("payment")}
-            >
-              <CreditCard className="w-4 h-4 mr-2" /> Pagamento
-            </Button>
             {(clientType === "empresa" || clientType === "prestador") && (
               <Button
                 variant={activeTab === "services" ? "secondary" : "ghost"}
@@ -741,35 +713,6 @@ export default function Profile() {
                 </div>
               )}
 
-              {/* TAB: PAYMENT */}
-              {activeTab === "payment" && (
-                <div className="space-y-6">
-                  <h2 className="text-xl font-bold">Métodos de Pagamento</h2>
-                  <div className="grid gap-4">
-                    {cards.map((card) => (
-                      <Card key={card.id} className="p-4 flex justify-between items-center bg-gradient-to-r from-slate-900 to-slate-800 text-white">
-                        <div className="flex items-center gap-3">
-                          <CreditCard className="w-6 h-6" />
-                          <div>
-                            <p className="font-medium">•••• •••• •••• {card.last4 || card.card_last4}</p>
-                            <p className="text-xs opacity-70">{card.holder || card.card_holder}</p>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="icon" className="text-red-400 hover:text-red-300"><Trash className="w-4 h-4" onClick={() => removeCard(card.id)} /></Button>
-                      </Card>
-                    ))}
-                  </div>
-                  <div className="p-4 border border-dashed rounded-lg space-y-3">
-                    <h3 className="text-sm font-medium">Adicionar Novo Cartão</h3>
-                    <Input placeholder="Número do Cartão" value={newCard.number} onChange={e => setNewCard({ ...newCard, number: e.target.value })} />
-                    <div className="flex gap-2">
-                      <Input placeholder="Nome no Cartão" value={newCard.holder} onChange={e => setNewCard({ ...newCard, holder: e.target.value })} />
-                      <Input placeholder="Validade (MM/AA)" value={newCard.expiry} onChange={e => setNewCard({ ...newCard, expiry: e.target.value })} />
-                    </div>
-                    <Button size="sm" onClick={addCard}><Plus className="w-4 h-4 mr-2" /> Adicionar</Button>
-                  </div>
-                </div>
-              )}
 
               {/* TAB: SERVICES */}
               {activeTab === "services" && (
