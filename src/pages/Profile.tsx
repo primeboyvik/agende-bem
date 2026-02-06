@@ -7,11 +7,21 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { LogOut, User as UserIcon, Loader2, ArrowLeft, Calendar, Save, Building2, Briefcase, MapPin, CreditCard, LayoutDashboard, Plus, Trash, Clock } from "lucide-react";
+import { LogOut, User as UserIcon, Loader2, ArrowLeft, Calendar, Save, Building2, Briefcase, MapPin, CreditCard, LayoutDashboard, Plus, Trash, Clock, Pencil, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import Logo from '@/Logo.png';
 import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
@@ -48,8 +58,10 @@ export default function Profile() {
   const [cards, setCards] = useState<any[]>([]);
   const [myServices, setMyServices] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<ProfileTab>("data");
+  const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
 
   // Inputs for adding new items
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [newService, setNewService] = useState({ name: "", price: "", description: "", image: "" });
   const [newAddress, setNewAddress] = useState({ street: "", city: "", zip: "" });
   const [newCard, setNewCard] = useState({ number: "", holder: "", expiry: "" });
@@ -252,7 +264,7 @@ export default function Profile() {
   };
 
   // Service Handlers (Direct DB Mode)
-  const handleAddService = async () => {
+  const handleSaveService = async () => {
     if (!newService.name || !newService.price) {
       toast.error("Preencha nome e valor do serviço");
       return;
@@ -268,35 +280,84 @@ export default function Profile() {
         company_name: companyName || fullName, // Saving company name for easier display
       };
 
-      const { data, error } = await (supabase.from('services') as any).insert(payload).select().single();
-      if (error) throw error;
+      if (editingServiceId) {
+        // UPDATE Existing Service
+        const { error } = await (supabase.from('services') as any)
+          .update(payload)
+          .eq('id', editingServiceId);
 
-      setMyServices([...myServices, data]);
+        if (error) throw error;
+
+        // Update local state
+        setMyServices(myServices.map(s => s.id === editingServiceId ? { ...s, ...payload, id: s.id } : s));
+        toast.success("Serviço atualizado!");
+      } else {
+        // CREATE New Service
+        const { data, error } = await (supabase.from('services') as any).insert(payload).select().single();
+        if (error) throw error;
+
+        setMyServices([...myServices, data]);
+        toast.success("Serviço salvo!");
+      }
+
+      // Reset Form
       setNewService({ name: "", price: "", description: "", image: "" });
-      toast.success("Serviço salvo!");
+      setEditingServiceId(null);
+
     } catch (error: any) {
       toast.error("Erro ao salvar serviço: " + error.message);
     }
   };
 
+  const startEditingService = (service: any) => {
+    setEditingServiceId(service.id);
+    setNewService({
+      name: service.service_name || service.title || service.name,
+      price: (service.valor || service.price || 0).toString(),
+      description: service.description || "",
+      image: service.image_url || service.image || ""
+    });
+    // Scroll to form (optional UX improvement)
+    const formElement = document.getElementById("service-form");
+    if (formElement) formElement.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const cancelEditing = () => {
+    setEditingServiceId(null);
+    setNewService({ name: "", price: "", description: "", image: "" });
+  };
+
   const handleRemoveService = async (id: any) => {
+    console.log("Attempting to delete service with ID:", id);
     try {
-      // Check if it's a real UUID (from DB)
-      if (typeof id === 'string' && id.length > 20) {
-        const { error } = await (supabase.from('services') as any).delete().eq('id', id);
-        if (error) throw error;
+      // 1. Always attempt to delete from DB first if it looks ANYthing like a string ID
+      if (id && typeof id === 'string') {
+        const { error, count } = await (supabase.from('services') as any)
+          .delete({ count: 'exact' })
+          .eq('id', id);
+
+        console.log("Delete result:", { error, count });
+
+        if (error) {
+          console.error("Supabase delete error:", error);
+          throw error;
+        }
       }
-      // Update local state
-      setMyServices(myServices.filter(s => s.id !== id));
+
+      // 2. Update local state
+      setMyServices(prev => prev.filter(s => s.id !== id));
       toast.success("Serviço removido");
     } catch (error: any) {
-      toast.error("Erro ao remover: " + error.message);
+      console.error("Delete function error:", error);
+      toast.error("Erro ao remover: " + (error.message || "Erro desconhecido"));
     }
   };
 
   // Legacy local handlers -> Moved to direct DB above
   // Placeholder to keep TS happy if referenced elsewhere, but we replaced usage
-  const addService = handleAddService;
+  // Legacy local handlers -> Moved to direct DB above
+  // Placeholder to keep TS happy if referenced elsewhere, but we replaced usage
+  const addService = handleSaveService;
   const removeService = handleRemoveService;
 
   const addAddress = () => {
@@ -731,13 +792,52 @@ export default function Profile() {
                           <p className="text-sm text-muted-foreground">{service.description}</p>
                           <p className="text-primary font-medium mt-1">R$ {service.valor || service.price}</p>
                         </div>
-                        <Button variant="ghost" size="icon" className="text-destructive"><Trash className="w-4 h-4" onClick={() => removeService(service.id)} /></Button>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="icon" className="text-blue-500 hover:text-blue-600 hover:bg-blue-50" onClick={() => startEditingService(service)}>
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="text-destructive hover:text-red-600 hover:bg-red-50" onClick={() => setServiceToDelete(service.id)}>
+                            <Trash className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </Card>
                     ))}
                   </div>
 
-                  <div className="p-6 bg-muted/30 border border-dashed rounded-xl space-y-4">
-                    <h3 className="font-semibold text-lg">Adicionar Serviço</h3>
+                  <AlertDialog open={!!serviceToDelete} onOpenChange={() => setServiceToDelete(null)}>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta ação não pode ser desfeita. Isso excluirá permanentemente o serviço do banco de dados.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onClick={() => {
+                            if (serviceToDelete) {
+                              removeService(serviceToDelete);
+                              setServiceToDelete(null);
+                            }
+                          }}
+                        >
+                          Excluir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+
+                  <div id="service-form" className={`p-6 border border-dashed rounded-xl space-y-4 ${editingServiceId ? 'bg-blue-50/50 border-blue-200' : 'bg-muted/30'}`}>
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-semibold text-lg">{editingServiceId ? 'Editar Serviço' : 'Adicionar Serviço'}</h3>
+                      {editingServiceId && (
+                        <Button variant="ghost" size="sm" onClick={cancelEditing} className="text-muted-foreground">
+                          <X className="w-4 h-4 mr-2" /> Cancelar
+                        </Button>
+                      )}
+                    </div>
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-2">
                         <Label>Nome do Serviço</Label>
@@ -756,7 +856,13 @@ export default function Profile() {
                         <Input placeholder="https://..." value={newService.image} onChange={e => setNewService({ ...newService, image: e.target.value })} />
                       </div>
                     </div>
-                    <Button className="w-full" onClick={addService}><Plus className="w-4 h-4 mr-2" /> Cadastrar Serviço</Button>
+                    <Button className={`w-full ${editingServiceId ? 'bg-blue-600 hover:bg-blue-700' : ''}`} onClick={addService}>
+                      {editingServiceId ? (
+                        <><Save className="w-4 h-4 mr-2" /> Salvar Alterações</>
+                      ) : (
+                        <><Plus className="w-4 h-4 mr-2" /> Cadastrar Serviço</>
+                      )}
+                    </Button>
                   </div>
                 </div>
               )}
