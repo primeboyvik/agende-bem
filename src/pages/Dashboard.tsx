@@ -23,20 +23,29 @@ export default function Dashboard() {
             if (!user?.id) return [];
 
             // Check if user is a client (user_id = client_id) OR provider (user_id = provider_id/service owner)
+            // First find the client record for this user's email
+            const email = user.email;
+            if (!email) return [];
+
+            const { data: clientData } = await supabase
+                .from('clients')
+                .select('id, name')
+                .eq('email', email)
+                .maybeSingle();
+
+            if (!clientData) return [];
+
             const { data, error } = await supabase
                 .from('appointments')
-                .select('*, client:profiles!client_id(full_name), service:services(title)')
-                .eq('client_id', user.id);
-            // Note: The select above includes joined data for better display in BigCalendar
+                .select('*, client:clients!client_id(name)')
+                .eq('client_id', clientData.id);
 
             if (error) throw error;
 
-            // Transform data to match expectations if needed, or rely on loose typing
-            return data.map(app => ({
+            return (data || []).map(app => ({
                 ...app,
-                client: { name: app.client?.full_name || 'Cliente' },
-                service: { title: app.service?.title || 'Serviço' }
-            })) || [];
+                client: { name: (app.client as any)?.name || 'Cliente' },
+            }));
         },
         enabled: !!user?.id
     });
