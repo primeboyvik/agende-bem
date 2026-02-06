@@ -55,7 +55,7 @@ export default function Profile() {
 
   // -- COMPLEX DATA STATES --
   const [addresses, setAddresses] = useState<any[]>([]);
-  
+
   const [myServices, setMyServices] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<ProfileTab>("data");
   const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
@@ -64,7 +64,7 @@ export default function Profile() {
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [newService, setNewService] = useState({ name: "", price: "", description: "", image: "" });
   const [newAddress, setNewAddress] = useState({ street: "", city: "", zip: "" });
-  
+
 
   // Availability
   const defaultAvailability = {
@@ -309,15 +309,7 @@ export default function Profile() {
   const handleRemoveService = async (id: any) => {
     console.log("Attempting to delete service via RPC with ID:", id);
     try {
-<<<<<<< HEAD
       if (!id) return;
-=======
-      // 1. Always attempt to delete from DB first if it looks ANYthing like a string ID
-      if (id && typeof id === 'string') {
-        const { error, count } = await supabase.from('services')
-          .delete({ count: 'exact' })
-          .eq('id', id);
->>>>>>> e368b51d9f5bdac05fcf4a8d78a3199b515a74bd
 
       // Use RPC (Remote Procedure Call) for robust deletion
       const { data, error } = await supabase.rpc('delete_own_service', {
