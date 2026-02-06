@@ -22,6 +22,8 @@ export type Database = {
           created_at: string
           id: string
           notes: string | null
+          provider_id: string | null
+          service_name: string | null
           status: Database["public"]["Enums"]["appointment_status"]
           updated_at: string
           visit_type: Database["public"]["Enums"]["visit_type"]
@@ -33,9 +35,11 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          provider_id?: string | null
+          service_name?: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
           updated_at?: string
-          visit_type: Database["public"]["Enums"]["visit_type"]
+          visit_type?: Database["public"]["Enums"]["visit_type"]
         }
         Update: {
           appointment_date?: string
@@ -44,6 +48,8 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          provider_id?: string | null
+          service_name?: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
           updated_at?: string
           visit_type?: Database["public"]["Enums"]["visit_type"]

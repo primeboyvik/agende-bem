@@ -16,36 +16,57 @@ export default function Dashboard() {
     const userType = profile?.user_type || "usuario";
     const userName = profile?.full_name || user?.email || "Usuário";
 
-    // Fetch user appointments
+    // Fetch user appointments (as client AND as provider)
     const { data: appointments } = useQuery({
-        queryKey: ['dashboard-appointments', user?.id],
+        queryKey: ['dashboard-appointments', user?.id, user?.email],
         queryFn: async () => {
             if (!user?.id) return [];
 
-            // Check if user is a client (user_id = client_id) OR provider (user_id = provider_id/service owner)
-            // First find the client record for this user's email
-            const email = user.email;
-            if (!email) return [];
+            const results: any[] = [];
 
-            const { data: clientData } = await supabase
-                .from('clients')
-                .select('id, name')
-                .eq('email', email)
-                .maybeSingle();
-
-            if (!clientData) return [];
-
-            const { data, error } = await supabase
+            // 1. As PROVIDER: appointments where provider_id = user.id
+            const { data: providerApps } = await supabase
                 .from('appointments')
                 .select('*, client:clients!client_id(name)')
-                .eq('client_id', clientData.id);
+                .eq('provider_id', user.id);
 
-            if (error) throw error;
+            if (providerApps) {
+                results.push(...providerApps.map(app => ({
+                    ...app,
+                    client: { name: (app.client as any)?.name || 'Cliente' },
+                    role: 'provider' as const,
+                })));
+            }
 
-            return (data || []).map(app => ({
-                ...app,
-                client: { name: (app.client as any)?.name || 'Cliente' },
-            }));
+            // 2. As CLIENT: find client record by email, then fetch appointments
+            const email = user.email;
+            if (email) {
+                const { data: clientData } = await supabase
+                    .from('clients')
+                    .select('id')
+                    .eq('email', email)
+                    .maybeSingle();
+
+                if (clientData) {
+                    const { data: clientApps } = await supabase
+                        .from('appointments')
+                        .select('*, client:clients!client_id(name)')
+                        .eq('client_id', clientData.id);
+
+                    if (clientApps) {
+                        const existingIds = new Set(results.map(r => r.id));
+                        results.push(...clientApps
+                            .filter(app => !existingIds.has(app.id))
+                            .map(app => ({
+                                ...app,
+                                client: { name: (app.client as any)?.name || 'Cliente' },
+                                role: 'client' as const,
+                            })));
+                    }
+                }
+            }
+
+            return results;
         },
         enabled: !!user?.id
     });

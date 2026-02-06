@@ -129,30 +129,62 @@ const Booking = () => {
   };
 
   const handleFormSubmit = async (data: ClientFormData) => {
-    if (!selectedService || !selectedDate || !selectedTime) return;
+    if (!selectedService || !selectedDate || !selectedTime || !companyId) return;
 
-    const clientData = {
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      notes: data.notes,
-    };
+    try {
+      // Create or find the client record
+      const { data: existingClient } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('email', data.email)
+        .maybeSingle();
 
-    // Mock success strictly
-    const success = true;
+      let clientId: string;
 
-    // Simulate API call
-    if (success) {
-      setTimeout(() => {
-        setAppointmentDetails({
-          ...clientData,
-          service: selectedService,
-          companyName: provider?.company_name || provider?.full_name || "Agende Bem",
-          date: selectedDate,
-          time: selectedTime,
-        });
-        setStep('success');
-      }, 1500);
+      if (existingClient) {
+        clientId = existingClient.id;
+        await supabase
+          .from('clients')
+          .update({ name: data.name, phone: data.phone })
+          .eq('id', clientId);
+      } else {
+        const { data: newClient, error: clientError } = await supabase
+          .from('clients')
+          .insert({ name: data.name, email: data.email, phone: data.phone })
+          .select('id')
+          .single();
+
+        if (clientError) throw clientError;
+        clientId = newClient.id;
+      }
+
+      // Insert appointment with provider_id
+      const { error: appointmentError } = await (supabase.from('appointments').insert as any)({
+        client_id: clientId,
+        provider_id: companyId,
+        service_name: selectedService,
+        visit_type: 'inspiracao',
+        appointment_date: format(selectedDate, 'yyyy-MM-dd'),
+        appointment_time: selectedTime + ':00',
+        notes: data.notes,
+        status: 'pending',
+      });
+
+      if (appointmentError) throw appointmentError;
+
+      setAppointmentDetails({
+        ...data,
+        service: selectedService,
+        companyName: provider?.company_name || provider?.full_name || "Agende Bem",
+        date: selectedDate,
+        time: selectedTime,
+      });
+      setStep('success');
+
+      toast({ title: "Agendamento confirmado!", description: "Seu horário foi reservado com sucesso." });
+    } catch (error: any) {
+      console.error('Error creating appointment:', error);
+      toast({ title: "Erro ao agendar", description: error.message || "Tente novamente.", variant: "destructive" });
     }
   };
 

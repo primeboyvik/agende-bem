@@ -22,10 +22,10 @@ interface Appointment {
     id: string;
     appointment_date: string;
     appointment_time: string;
-    // Add other fields if necessary
+    service_name?: string;
     client?: { name: string };
-    service?: { title: string };
-    // We handle potential 'any' type from Supabase for now
+    role?: 'provider' | 'client';
+    status?: string;
     [key: string]: any;
 }
 
@@ -112,33 +112,45 @@ export function BigCalendar({ appointments }: BigCalendarProps) {
                             </div>
 
                             <div className="space-y-1">
-                                {dayApps.slice(0, 3).map((app) => (
-                                    <Dialog key={app.id}>
-                                        <DialogTrigger asChild>
-                                            <div className="text-xs p-1 rounded bg-primary/10 text-primary border-l-2 border-primary truncate cursor-pointer hover:bg-primary/20 transition-colors">
-                                                {app.appointment_time.slice(0, 5)} - {app.client?.name || "Cliente"}
-                                            </div>
-                                        </DialogTrigger>
-                                        <DialogContent>
-                                            <DialogHeader>
-                                                <DialogTitle>Detalhes do Agendamento</DialogTitle>
-                                            </DialogHeader>
-                                            <div className="space-y-4 pt-4">
-                                                <div className="flex items-center gap-2">
-                                                    <Clock className="w-5 h-5 text-muted-foreground" />
-                                                    <span>
-                                                        {format(new Date(app.appointment_date + 'T12:00:00'), "dd 'de' MMMM", { locale: ptBR })} às {app.appointment_time}
-                                                    </span>
+                                {dayApps.slice(0, 3).map((app) => {
+                                    const isProvider = app.role === 'provider';
+                                    return (
+                                        <Dialog key={app.id}>
+                                            <DialogTrigger asChild>
+                                                <div className={cn(
+                                                    "text-xs p-1 rounded border-l-2 truncate cursor-pointer transition-colors",
+                                                    isProvider
+                                                        ? "bg-red-100 text-red-700 border-red-400 hover:bg-red-200"
+                                                        : "bg-blue-900/10 text-blue-900 border-blue-900 hover:bg-blue-900/20"
+                                                )}>
+                                                    {app.appointment_time.slice(0, 5)} - {isProvider ? (app.client?.name || "Cliente") : (app.service_name || "Serviço")}
                                                 </div>
-                                                {/* Add more details here based on available data */}
-                                                <div className="p-4 bg-muted rounded-lg space-y-2">
-                                                    <p><strong>Cliente:</strong> {app.client?.name || "Não informado"}</p>
-                                                    <p><strong>Serviço:</strong> {app.service?.title || "Não informado"}</p>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Detalhes do Agendamento</DialogTitle>
+                                                </DialogHeader>
+                                                <div className="space-y-4 pt-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <Clock className="w-5 h-5 text-muted-foreground" />
+                                                        <span>
+                                                            {format(new Date(app.appointment_date + 'T12:00:00'), "dd 'de' MMMM", { locale: ptBR })} às {app.appointment_time.slice(0, 5)}
+                                                        </span>
+                                                    </div>
+                                                    <div className={cn(
+                                                        "p-4 rounded-lg space-y-2",
+                                                        isProvider ? "bg-red-50" : "bg-blue-50"
+                                                    )}>
+                                                        <p><strong>Tipo:</strong> {isProvider ? "📋 Compromisso (Prestador)" : "📅 Agendamento (Cliente)"}</p>
+                                                        <p><strong>Cliente:</strong> {app.client?.name || "Não informado"}</p>
+                                                        <p><strong>Serviço:</strong> {app.service_name || "Não informado"}</p>
+                                                        <p><strong>Status:</strong> {app.status || "Pendente"}</p>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </DialogContent>
-                                    </Dialog>
-                                ))}
+                                            </DialogContent>
+                                        </Dialog>
+                                    );
+                                })}
                                 {dayApps.length > 3 && (
                                     <div className="text-xs text-muted-foreground pl-1">
                                         + {dayApps.length - 3} mais
