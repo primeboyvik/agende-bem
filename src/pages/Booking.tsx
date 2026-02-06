@@ -28,9 +28,9 @@ interface ProviderData {
 
 interface ServiceData {
   id: string;
-  title: string;
+  service_name: string;
   description: string | null;
-  price: number;
+  valor: number;
 }
 
 const Booking = () => {
@@ -84,7 +84,7 @@ const Booking = () => {
 
         const { data: servicesData, error: servicesError } = await supabase
           .from('services')
-          .select('id, title, description, price')
+          .select('id, service_name, description, valor')
           .eq('user_id', companyId);
 
         if (servicesError) {
@@ -249,18 +249,18 @@ const Booking = () => {
                 services.map((service) => (
                   <Card
                     key={service.id}
-                    className={`p-6 cursor-pointer hover:border-primary transition-all ${selectedService === service.title ? 'border-2 border-primary bg-primary/5' : ''}`}
+                    className={`p-6 cursor-pointer hover:border-primary transition-all ${selectedService === service.service_name ? 'border-2 border-primary bg-primary/5' : ''}`}
                     onClick={() => {
-                      setSelectedService(service.title);
+                      setSelectedService(service.service_name);
                       setStep('datetime');
                     }}
                   >
-                    <h3 className="font-bold text-lg">{service.title}</h3>
+                    <h3 className="font-bold text-lg">{service.service_name}</h3>
                     {service.description && (
                       <p className="text-muted-foreground text-sm mt-1">{service.description}</p>
                     )}
                     <p className="text-primary font-semibold mt-2">
-                      R$ {service.price.toFixed(2).replace('.', ',')}
+                      R$ {service.valor.toFixed(2).replace('.', ',')}
                     </p>
                   </Card>
                 ))

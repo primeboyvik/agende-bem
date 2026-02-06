@@ -10,9 +10,9 @@ import { toast } from "sonner";
 // Types for search results
 interface ServiceResult {
     id: string;
-    title: string;
+    service_name: string;
     description?: string;
-    price: number;
+    valor: number;
     user_id: string;
 }
 
@@ -88,8 +88,8 @@ export default function SearchResults() {
                 if (query) {
                     const { data: services, error: serviceError } = await (supabase
                         .from('services')
-                        .select('id, title, description, price, user_id, image_url') as any)
-                        .or(`title.ilike.%${query}%,description.ilike.%${query}%`);
+                        .select('id, service_name, description, valor, user_id, image_url') as any)
+                        .or(`service_name.ilike.%${query}%,description.ilike.%${query}%`);
 
                     if (!serviceError && services) {
                         serviceMatches = services;
@@ -125,15 +125,15 @@ export default function SearchResults() {
                 if (companyUserIds.length > 0) {
                     const { data: allServices } = await (supabase
                         .from('services')
-                        .select('title, user_id') as any)
+                        .select('service_name, user_id') as any)
                         .in('user_id', companyUserIds);
 
                     if (allServices) {
                         allServices.forEach((svc: any) => {
                             if (combinedMap.has(svc.user_id)) {
                                 const entry = combinedMap.get(svc.user_id);
-                                if (!entry.services.includes(svc.title)) {
-                                    entry.services.push(svc.title);
+                                if (!entry.services.includes(svc.service_name)) {
+                                    entry.services.push(svc.service_name);
                                 }
                             }
                         });

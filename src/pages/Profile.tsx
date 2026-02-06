@@ -261,10 +261,11 @@ export default function Profile() {
     try {
       const payload = {
         user_id: user!.id,
-        title: newService.name,
+        service_name: newService.name,
         description: newService.description,
-        price: parseFloat(newService.price) || 0,
+        valor: parseFloat(newService.price) || 0,
         image_url: newService.image,
+        company_name: companyName || fullName, // Saving company name for easier display
       };
 
       const { data, error } = await (supabase.from('services') as any).insert(payload).select().single();
@@ -726,9 +727,9 @@ export default function Profile() {
                           {service.image || service.image_url ? <img src={service.image || service.image_url} className="w-full h-full object-cover" /> : <Briefcase className="w-full h-full p-4 text-muted-foreground" />}
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-bold">{service.name}</h3>
+                          <h3 className="font-bold">{service.service_name || service.title || service.name}</h3>
                           <p className="text-sm text-muted-foreground">{service.description}</p>
-                          <p className="text-primary font-medium mt-1">R$ {service.price}</p>
+                          <p className="text-primary font-medium mt-1">R$ {service.valor || service.price}</p>
                         </div>
                         <Button variant="ghost" size="icon" className="text-destructive"><Trash className="w-4 h-4" onClick={() => removeService(service.id)} /></Button>
                       </Card>
