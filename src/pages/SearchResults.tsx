@@ -10,9 +10,9 @@ import { toast } from "sonner";
 // Types for search results
 interface ServiceResult {
     id: string;
-    service_name: string;
+    title: string;
     description?: string;
-    valor: number;
+    price: number;
     user_id: string;
 }
 
@@ -50,10 +50,11 @@ export default function SearchResults() {
                 let profileDetails: any[] = [];
                 let serviceMatches: ServiceResult[] = [];
 
-                // 1. Fetch Companies (Source of Truth for Businesses)
+                // 1. Fetch Companies from profiles where user_type = 'empresa'
                 let companyQuery = supabase
-                    .from('companys')
-                    .select('user_id, company_name, cnpj');
+                    .from('profiles')
+                    .select('user_id, company_name, full_name, city, profession, user_type, cnpj')
+                    .eq('user_type', 'empresa');
 
                 if (query) {
                     companyQuery = companyQuery.ilike('company_name', `%${query}%`);
@@ -65,31 +66,18 @@ export default function SearchResults() {
                     throw companyError;
                 }
 
-                // Debug log
-                console.log("Found companies:", companies);
-
                 companyMatches = companies || [];
 
-                // 2. Fetch Profiles for these companies (to get city, profession, etc)
-                // FIXED: Must use user_id to join with profiles, not company_name
-                const companyUserIds = companyMatches.map(c => c.user_id);
-
-                if (companyUserIds.length > 0) {
-                    const { data: profiles, error: profileError } = await supabase
-                        .from('profiles')
-                        .select('user_id, full_name, profession, user_type')
-                        .in('user_id', companyUserIds);
-
-                    if (profileError) throw profileError;
-                    profileDetails = profiles || [];
-                }
+                // 2. Profile details already fetched above
+                const companyUserIds = companyMatches.map((c: any) => c.user_id);
+                profileDetails = companyMatches;
 
                 // 3. Search in Services (if query exists)
                 if (query) {
-                    const { data: services, error: serviceError } = await (supabase
+                    const { data: services, error: serviceError } = await supabase
                         .from('services')
-                        .select('id, service_name, description, valor, user_id, image_url') as any)
-                        .or(`service_name.ilike.%${query}%,description.ilike.%${query}%`);
+                        .select('id, title, description, price, user_id, image_url')
+                        .or(`title.ilike.%${query}%,description.ilike.%${query}%`);
 
                     if (!serviceError && services) {
                         serviceMatches = services;
@@ -100,17 +88,15 @@ export default function SearchResults() {
                 const combinedMap = new Map();
 
                 // Add Company Matches first
-                companyMatches.forEach(company => {
-                    const profile = profileDetails.find(p => p.user_id === company.user_id);
-
+                companyMatches.forEach((company: any) => {
                     combinedMap.set(company.user_id, {
                         id: company.user_id,
-                        name: company.company_name || profile?.full_name || "Empresa",
-                        type: 'empresa', // Sourced from Companys table, so it IS a company
+                        name: company.company_name || company.full_name || "Empresa",
+                        type: 'empresa',
                         cnpj: company.cnpj,
                         rating: 4.8,
-                        address: profile?.city || "Localização não informada",
-                        description: profile?.profession || "Prestador de Serviços",
+                        address: company.city || "Localização não informada",
+                        description: company.profession || "Prestador de Serviços",
                         image: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80",
                         services: []
                     });
@@ -123,17 +109,17 @@ export default function SearchResults() {
 
                 // Fetch all services for the found companies to display as tags
                 if (companyUserIds.length > 0) {
-                    const { data: allServices } = await (supabase
+                    const { data: allServices } = await supabase
                         .from('services')
-                        .select('service_name, user_id') as any)
+                        .select('title, user_id')
                         .in('user_id', companyUserIds);
 
                     if (allServices) {
                         allServices.forEach((svc: any) => {
                             if (combinedMap.has(svc.user_id)) {
                                 const entry = combinedMap.get(svc.user_id);
-                                if (!entry.services.includes(svc.service_name)) {
-                                    entry.services.push(svc.service_name);
+                                if (!entry.services.includes(svc.title)) {
+                                    entry.services.push(svc.title);
                                 }
                             }
                         });
