@@ -182,6 +182,22 @@ const Booking = () => {
       setStep('success');
 
       toast({ title: "Agendamento confirmado!", description: "Seu horário foi reservado com sucesso." });
+
+      // Send confirmation email via edge function
+      try {
+        await supabase.functions.invoke('send-booking-email', {
+          body: {
+            clientName: data.name,
+            clientEmail: data.email,
+            serviceName: selectedService,
+            providerName: provider?.company_name || provider?.full_name || 'Boo',
+            appointmentDate: format(selectedDate, "dd/MM/yyyy"),
+            appointmentTime: selectedTime,
+          },
+        });
+      } catch (emailError) {
+        console.warn('Email de confirmação não enviado:', emailError);
+      }
     } catch (error: any) {
       console.error('Error creating appointment:', error);
       toast({ title: "Erro ao agendar", description: error.message || "Tente novamente.", variant: "destructive" });
