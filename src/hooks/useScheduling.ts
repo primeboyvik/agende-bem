@@ -121,16 +121,16 @@ export function useScheduling() {
       }
 
       // Create appointment
-      const { error: appointmentError } = await (supabase
+      const { error: appointmentError } = await supabase
         .from('appointments')
-        .insert as any)({
+        .insert([{
           client_id: clientId,
-          visit_type: visitType,
+          visit_type: visitType as "inspiracao" | "conexoes",
           appointment_date: format(date, 'yyyy-MM-dd'),
           appointment_time: time + ':00',
           notes: clientData.notes,
-          status: 'pending',
-        });
+          status: 'pending' as const,
+        }]);
 
       if (appointmentError) {
         throw appointmentError;
