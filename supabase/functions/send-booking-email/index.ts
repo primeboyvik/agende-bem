@@ -84,10 +84,11 @@ const handler = async (req: Request): Promise<Response> => {
             .body { padding: 32px; }
             .greeting { font-size: 16px; color: #374151; margin-bottom: 20px; }
             .details { background: #f9fafb; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
-            .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
+            .detail-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e5e7eb; }
             .detail-row:last-child { border-bottom: none; }
             .detail-label { color: #6b7280; font-size: 14px; }
-            .detail-value { color: #111827; font-weight: 600; font-size: 14px; }
+            .detail-value { color: #111827; font-weight: 600; font-size: 15px; }
+            .highlight { color: #6366f1; font-size: 16px; }
             .footer { text-align: center; padding: 24px 32px; color: #9ca3af; font-size: 12px; border-top: 1px solid #f3f4f6; }
             .checkmark { font-size: 48px; margin-bottom: 12px; }
           </style>
@@ -101,7 +102,7 @@ const handler = async (req: Request): Promise<Response> => {
             </div>
             <div class="body">
               <p class="greeting">Olá, <strong>${clientName}</strong>!</p>
-              <p class="greeting">Confira os detalhes do seu agendamento:</p>
+              <p class="greeting">Aqui estão os detalhes do seu próximo compromisso:</p>
               <div class="details">
                 <div class="detail-row">
                   <span class="detail-label">Serviço</span>
@@ -112,16 +113,16 @@ const handler = async (req: Request): Promise<Response> => {
                   <span class="detail-value">${providerName}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">Data</span>
-                  <span class="detail-value">${appointmentDate}</span>
+                  <span class="detail-label">📅 Data</span>
+                  <span class="detail-value highlight">${appointmentDate}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">Horário</span>
-                  <span class="detail-value">${appointmentTime}</span>
+                  <span class="detail-label">⏰ Horário</span>
+                  <span class="detail-value highlight">${appointmentTime}</span>
                 </div>
               </div>
-              <p style="color: #6b7280; font-size: 14px;">
-                Caso precise cancelar ou reagendar, entre em contato conosco.
+              <p style="color: #6b7280; font-size: 14px; text-align: center;">
+                Nos vemos em breve!
               </p>
             </div>
             <div class="footer">

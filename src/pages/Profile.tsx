@@ -27,7 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Navbar } from "@/components/Navbar";
 import { lovable } from "@/integrations/lovable";
 
-type ProfileTab = "data" | "address" | "services";
+type ProfileTab = "data" | "address" | "services" | "empresa";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -55,6 +55,8 @@ export default function Profile() {
 
   // -- COMPLEX DATA STATES --
   const [addresses, setAddresses] = useState<any[]>([]);
+  const [businessDescription, setBusinessDescription] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
 
   const [myServices, setMyServices] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<ProfileTab>("data");
@@ -103,7 +105,11 @@ export default function Profile() {
           setPhone(publicData.phone || "");
           setSex(publicData.sex || "");
           setGender(publicData.gender || "");
+          setSex(publicData.sex || "");
+          setGender(publicData.gender || "");
           setCnpj(publicData.cnpj || "");
+          setBusinessDescription(publicData.business_description || "");
+          setLogoUrl(publicData.logo_url || "");
         } else {
           const metadata = user.user_metadata || {};
           setFullName(metadata.full_name || "");
@@ -170,6 +176,8 @@ export default function Profile() {
         sex,
         gender,
         cnpj,
+        business_description: businessDescription,
+        logo_url: logoUrl,
         updated_at: new Date().toISOString(),
       };
 
@@ -582,6 +590,15 @@ export default function Profile() {
                 <Briefcase className="w-4 h-4 mr-2" /> Meus Serviços
               </Button>
             )}
+            {(clientType === "empresa") && (
+              <Button
+                variant={activeTab === "empresa" ? "secondary" : "ghost"}
+                className="w-full justify-start text-primary font-medium"
+                onClick={() => setActiveTab("empresa")}
+              >
+                <Building2 className="w-4 h-4 mr-2" /> Dados da Empresa
+              </Button>
+            )}
           </aside>
 
           {/* Content Area */}
@@ -630,22 +647,7 @@ export default function Profile() {
                     </div>
                   </div>
 
-                  {/* Company Specific */}
-                  {clientType === 'empresa' && (
-                    <div className="space-y-4 pt-4 border-t border-border">
-                      <h3 className="font-semibold flex items-center gap-2"><Building2 className="w-4 h-4" /> Dados da Empresa</h3>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-2">
-                          <Label>Nome da Empresa (Razão Social)</Label>
-                          <Input value={companyName} onChange={e => setCompanyName(e.target.value)} disabled={!isEditing} placeholder="Sua empresa" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>CNPJ</Label>
-                          <Input value={cnpj} onChange={e => setCnpj(e.target.value)} disabled={!isEditing} placeholder="00.000.000/0001-00" />
-                        </div>
-                      </div>
-                    </div>
-                  )}
+
 
                   {/* Availability */}
                   {(clientType === 'empresa' || clientType === 'prestador') && (
@@ -672,6 +674,56 @@ export default function Profile() {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* TAB: EMPRESA */}
+              {activeTab === "empresa" && (
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-xl font-bold flex items-center gap-2"><Building2 className="w-5 h-5" /> Dados da Empresa</h2>
+                    <Button onClick={() => isEditing ? handleSaveAll() : setIsEditing(true)} variant={isEditing ? "default" : "outline"}>
+                      {isEditing ? "Salvar" : "Editar"}
+                    </Button>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Nome da Empresa (Razão Social)</Label>
+                      <Input value={companyName} onChange={e => setCompanyName(e.target.value)} disabled={!isEditing} placeholder="Sua empresa" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>CNPJ</Label>
+                      <Input value={cnpj} onChange={e => setCnpj(e.target.value)} disabled={!isEditing} placeholder="00.000.000/0001-00" />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Descrição da Empresa</Label>
+                      <Textarea
+                        value={businessDescription}
+                        onChange={e => setBusinessDescription(e.target.value)}
+                        disabled={!isEditing}
+                        placeholder="Conte um pouco sobre sua empresa..."
+                        rows={4}
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Logo (URL)</Label>
+                      <div className="flex gap-4 items-center">
+                        <Input
+                          value={logoUrl}
+                          onChange={e => setLogoUrl(e.target.value)}
+                          disabled={!isEditing}
+                          placeholder="https://..."
+                          className="flex-1"
+                        />
+                        {logoUrl && (
+                          <div className="w-16 h-16 rounded-md overflow-hidden border bg-muted flex-shrink-0">
+                            <img src={logoUrl} alt="Logo Preview" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -803,6 +855,6 @@ export default function Profile() {
           </main>
         </div>
       </div>
-    </div>
+    </div >
   );
 }

@@ -7,7 +7,7 @@ import { ClientForm, ClientFormData } from '@/components/scheduling/ClientForm';
 import { useAuth } from '@/hooks/useAuth';
 import { useScheduling } from '@/hooks/useScheduling';
 import { TimeSlot } from '@/types/scheduling';
-import { ArrowLeft, CheckCircle, MapPin } from 'lucide-react';
+import { ArrowLeft, CheckCircle, MapPin, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/components/ui/use-toast';
@@ -16,7 +16,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { supabase } from '@/integrations/supabase/client';
 import { Navbar } from '@/components/Navbar';
 
-type Step = 'service' | 'datetime' | 'form' | 'success';
+type Step = 'service' | 'identity' | 'datetime' | 'confirmation' | 'success';
 
 interface ProviderData {
   user_id: string;
@@ -47,6 +47,7 @@ const Booking = () => {
 
   const [step, setStep] = useState<Step>('service');
   const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [clientData, setClientData] = useState<ClientFormData | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedTime, setSelectedTime] = useState<string | undefined>();
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
@@ -124,12 +125,18 @@ const Booking = () => {
 
   const handleDateTimeNext = () => {
     if (selectedDate && selectedTime) {
-      setStep('form');
+      setStep('confirmation');
     }
   };
 
-  const handleFormSubmit = async (data: ClientFormData) => {
-    if (!selectedService || !selectedDate || !selectedTime || !companyId) return;
+  const handleIdentitySubmit = (data: ClientFormData) => {
+    setClientData(data);
+    setStep('datetime');
+  };
+
+  const handleConfirmBooking = async () => {
+    if (!selectedService || !selectedDate || !selectedTime || !companyId || !clientData) return;
+    const data = clientData;
 
     try {
       // Create or find the client record
@@ -145,12 +152,12 @@ const Booking = () => {
         clientId = existingClient.id;
         await supabase
           .from('clients')
-          .update({ name: data.name, phone: data.phone })
+          .update({ name: data.name, phone: data.phone, document: data.document })
           .eq('id', clientId);
       } else {
         const { data: newClient, error: clientError } = await supabase
           .from('clients')
-          .insert({ name: data.name, email: data.email, phone: data.phone })
+          .insert({ name: data.name, email: data.email, phone: data.phone, document: data.document })
           .select('id')
           .single();
 
@@ -185,7 +192,7 @@ const Booking = () => {
 
       // Send confirmation email via edge function
       try {
-        await supabase.functions.invoke('send-booking-email', {
+        const { error: emailFunctionError } = await supabase.functions.invoke('send-booking-email', {
           body: {
             clientName: data.name,
             clientEmail: data.email,
@@ -195,8 +202,22 @@ const Booking = () => {
             appointmentTime: selectedTime,
           },
         });
-      } catch (emailError) {
+
+        if (emailFunctionError) throw emailFunctionError;
+
+        toast({
+          title: "Email enviado!",
+          description: `Uma confirmação foi enviada para ${data.email}.`,
+          duration: 5000,
+        });
+      } catch (emailError: any) {
         console.warn('Email de confirmação não enviado:', emailError);
+        toast({
+          title: "Aviso",
+          description: "O agendamento foi confirmado, mas houve um erro ao enviar o email.",
+          variant: "destructive",
+          duration: 5000,
+        });
       }
     } catch (error: any) {
       console.error('Error creating appointment:', error);
@@ -205,10 +226,12 @@ const Booking = () => {
   };
 
   const handleBack = () => {
-    if (step === 'datetime') {
+    if (step === 'identity') {
       setStep('service');
       setSelectedService(null);
-    } else if (step === 'form') {
+    } else if (step === 'datetime') {
+      setStep('identity');
+    } else if (step === 'confirmation') {
       setStep('datetime');
     }
   };
@@ -255,20 +278,20 @@ const Booking = () => {
         {/* Progress Steps */}
         {step !== 'success' && (
           <div className="flex items-center justify-center gap-4 mb-12">
-            {['service', 'datetime', 'form'].map((s, i) => (
+            {['service', 'identity', 'datetime', 'confirmation'].map((s, i) => (
               <div key={s} className="flex items-center gap-2">
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === s
                     ? 'bg-gradient-electric text-white shadow-electric'
-                    : ['service', 'datetime', 'form'].indexOf(step) > i
+                    : ['service', 'identity', 'datetime', 'confirmation'].indexOf(step) > i
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted text-muted-foreground'
                     }`}
                 >
                   {i + 1}
                 </div>
-                {i < 2 && (
-                  <div className={`w-12 h-1 rounded ${['service', 'datetime', 'form'].indexOf(step) > i
+                {i < 3 && (
+                  <div className={`w-12 h-1 rounded ${['service', 'identity', 'datetime', 'confirmation'].indexOf(step) > i
                     ? 'bg-primary'
                     : 'bg-muted'
                     }`} />
@@ -300,7 +323,7 @@ const Booking = () => {
                     className={`p-6 cursor-pointer hover:border-primary transition-all ${selectedService === service.title ? 'border-2 border-primary bg-primary/5' : ''}`}
                     onClick={() => {
                       setSelectedService(service.title);
-                      setStep('datetime');
+                      setStep('identity');
                     }}
                   >
                     <h3 className="font-bold text-lg">{service.title}</h3>
@@ -375,44 +398,83 @@ const Booking = () => {
                 onClick={handleDateTimeNext}
                 className="bg-gradient-electric hover:opacity-90 text-primary-foreground font-semibold px-12 shadow-electric"
               >
-                Continuar
+                Revisar e Confirmar
               </Button>
             </div>
           </div>
         )}
 
-        {/* Step 3: Client Form */}
-        {step === 'form' && selectedService && selectedDate && selectedTime && (
+        {/* Step 4: Confirmation */}
+        {step === 'confirmation' && selectedService && selectedDate && selectedTime && clientData && (
           <div className="space-y-8 max-w-lg mx-auto">
             <div className="text-center">
-              <h1 className="text-3xl font-bold mb-4">Seus Dados</h1>
+              <h1 className="text-3xl font-bold mb-4">Confirmar Agendamento</h1>
               <p className="text-muted-foreground">
-                Confirme seus dados para o agendamento
+                Revise os detalhes do seu agendamento
               </p>
             </div>
 
-            <Card className="p-4 bg-primary/5 border-primary/20">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Serviço:</span>
-                <span className="font-medium">{selectedService}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm mt-2">
-                <span className="text-muted-foreground">Empresa:</span>
-                <span className="font-medium">{providerDisplayName}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm mt-2">
-                <span className="text-muted-foreground">Data:</span>
-                <span className="font-medium">
-                  {format(selectedDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-sm mt-2">
-                <span className="text-muted-foreground">Horário:</span>
-                <span className="font-medium">{selectedTime}</span>
+            <Card className="p-6 bg-card border-2 border-primary/20">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center pb-4 border-b">
+                  <span className="text-muted-foreground">Serviço</span>
+                  <span className="font-semibold text-lg">{selectedService}</span>
+                </div>
+                <div className="flex justify-between items-center pb-4 border-b">
+                  <span className="text-muted-foreground">Empresa</span>
+                  <span className="font-medium">{providerDisplayName}</span>
+                </div>
+                <div className="flex justify-between items-center pb-4 border-b">
+                  <span className="text-muted-foreground">Data e Hora</span>
+                  <div className="text-right">
+                    <div className="font-medium">{format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}</div>
+                    <div className="text-primary font-bold">{selectedTime}</div>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center pb-4 border-b">
+                  <span className="text-muted-foreground">Cliente</span>
+                  <div className="text-right">
+                    <div className="font-medium">{clientData.name}</div>
+                    <div className="text-sm text-muted-foreground">{clientData.email}</div>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Documento</span>
+                  <span className="font-medium">{clientData.document}</span>
+                </div>
+                <div className="flex justify-between items-center pt-2">
+                  <span className="text-muted-foreground">Pessoas</span>
+                  <span className="font-medium">{clientData.numberOfPeople || 1}</span>
+                </div>
+                {clientData.participants && clientData.participants.length > 0 && (
+                  <div className="pt-4 border-t">
+                    <span className="text-muted-foreground block mb-2">Participantes</span>
+                    <div className="space-y-2">
+                      {clientData.participants.map((p, i) => (
+                        <div key={i} className="text-sm">
+                          <span className="font-medium">{p.name}</span> <span className="text-muted-foreground">({p.document})</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
 
-            <ClientForm onSubmit={handleFormSubmit} isLoading={isLoading} />
+            <Button
+              onClick={handleConfirmBooking}
+              disabled={isLoading}
+              className="w-full bg-gradient-electric hover:opacity-90 text-primary-foreground font-semibold py-6 shadow-electric text-lg"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Confirmando...
+                </>
+              ) : (
+                'Confirmar Agendamento'
+              )}
+            </Button>
           </div>
         )}
 
