@@ -349,7 +349,43 @@ const Booking = () => {
           </div>
         )}
 
-        {/* Step 2: Select Date and Time */}
+        {/* Step 2: Identity - Client Info & Number of People */}
+        {step === 'identity' && selectedService && (
+          <div className="space-y-8">
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-4">
+                <span className="text-sm font-medium text-primary">
+                  {selectedService}
+                </span>
+              </div>
+              <h1 className="text-3xl font-bold mb-4">Seus Dados</h1>
+              <p className="text-muted-foreground">
+                Preencha suas informações e o número de pessoas
+              </p>
+            </div>
+
+            <div className="max-w-lg mx-auto">
+              <ClientForm
+                onSubmit={handleIdentitySubmit}
+                isLoading={isLoading}
+                defaultValues={clientData ? {
+                  name: clientData.name,
+                  email: clientData.email,
+                  phone: clientData.phone,
+                  document: clientData.document,
+                  numberOfPeople: clientData.numberOfPeople,
+                  participants: clientData.participants?.map(p => ({ name: p.name || '', document: p.document || '' })),
+                  notes: clientData.notes,
+                } : user ? {
+                  name: user.user_metadata?.full_name || '',
+                  email: user.email || '',
+                } : undefined}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Select Date and Time */}
         {step === 'datetime' && selectedService && (
           <div className="space-y-8">
             <div className="text-center">
