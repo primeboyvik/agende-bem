@@ -22,6 +22,8 @@ export type Database = {
           created_at: string
           id: string
           notes: string | null
+          number_of_people: number | null
+          participants: Json | null
           provider_id: string | null
           service_name: string | null
           status: Database["public"]["Enums"]["appointment_status"]
@@ -35,6 +37,8 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          number_of_people?: number | null
+          participants?: Json | null
           provider_id?: string | null
           service_name?: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
@@ -48,6 +52,8 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          number_of_people?: number | null
+          participants?: Json | null
           provider_id?: string | null
           service_name?: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
@@ -94,6 +100,7 @@ export type Database = {
       clients: {
         Row: {
           created_at: string
+          document: string | null
           email: string
           id: string
           name: string
@@ -102,6 +109,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          document?: string | null
           email: string
           id?: string
           name: string
@@ -110,6 +118,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          document?: string | null
           email?: string
           id?: string
           name?: string
@@ -120,6 +129,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          business_description: string | null
           city: string | null
           cnpj: string | null
           company_name: string | null
@@ -127,6 +137,7 @@ export type Database = {
           full_name: string | null
           gender: string | null
           id: string
+          logo_url: string | null
           phone: string | null
           profession: string | null
           sex: string | null
@@ -135,6 +146,7 @@ export type Database = {
           user_type: string | null
         }
         Insert: {
+          business_description?: string | null
           city?: string | null
           cnpj?: string | null
           company_name?: string | null
@@ -142,6 +154,7 @@ export type Database = {
           full_name?: string | null
           gender?: string | null
           id?: string
+          logo_url?: string | null
           phone?: string | null
           profession?: string | null
           sex?: string | null
@@ -150,6 +163,7 @@ export type Database = {
           user_type?: string | null
         }
         Update: {
+          business_description?: string | null
           city?: string | null
           cnpj?: string | null
           company_name?: string | null
@@ -157,6 +171,7 @@ export type Database = {
           full_name?: string | null
           gender?: string | null
           id?: string
+          logo_url?: string | null
           phone?: string | null
           profession?: string | null
           sex?: string | null
