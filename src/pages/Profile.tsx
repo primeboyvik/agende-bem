@@ -92,30 +92,51 @@ export default function Profile() {
   // Load Data from Supabase
   useEffect(() => {
     if (user) {
-      // 1. Load Profile Data (Public & Private)
       const loadProfile = async () => {
-        // Fetch Profile Data (all fields stored in profiles table, not metadata)
-        const { data: publicData } = await supabase.from('profiles').select('*').eq('user_id', user.id).single();
+        // 1. Fetch Public Profile Data
+        const { data: publicData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        // 2. Fetch Private Profile Data
+        const { data: privateDataRaw } = await (supabase
+          .from('profiles_private' as any)
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle());
+
+        const privateData = privateDataRaw as any;
 
         if (publicData) {
           setFullName(publicData.full_name || "");
           setClientType(publicData.user_type || "usuario");
           setProfession(publicData.profession || "");
           setCompanyName(publicData.company_name || "");
-          setPhone(publicData.phone || "");
-          setSex(publicData.sex || "");
-          setGender(publicData.gender || "");
-          setSex(publicData.sex || "");
-          setGender(publicData.gender || "");
-          setCnpj(publicData.cnpj || "");
           setBusinessDescription(publicData.business_description || "");
           setLogoUrl(publicData.logo_url || "");
+          // Legacy fields might still be in publicData if not migrated, but prefer privateData
         } else {
           const metadata = user.user_metadata || {};
           setFullName(metadata.full_name || "");
         }
 
-        // 2. Load Services from Table
+        if (privateData) {
+          setPhone(privateData.phone || "");
+          setSex(privateData.sex || "");
+          setGender(privateData.gender || "");
+          setCnpj(privateData.cnpj || "");
+        } else if (publicData) {
+          // Fallback: try to read from publicData if it wasn't migrated yet
+          const legacyData = publicData as any;
+          setPhone(legacyData.phone || "");
+          setSex(legacyData.sex || "");
+          setGender(legacyData.gender || "");
+          setCnpj(legacyData.cnpj || "");
+        }
+
+        // 3. Load Services from Table
         const { data: servicesData, error: servicesError } = await supabase
           .from('services')
           .select('*')
@@ -127,7 +148,7 @@ export default function Profile() {
           setMyServices(user.user_metadata?.services || []);
         }
 
-        // 3. Load Addresses from Metadata
+        // 4. Load Addresses from Metadata
         setAddresses(user.user_metadata?.addresses || []);
       };
 
@@ -166,63 +187,49 @@ export default function Profile() {
     setAuthLoading(true);
 
     try {
-      // 1. Update Public Profile
+      // 1. Update Public Profile (profiles table)
       const publicUpdates = {
         full_name: fullName,
         user_type: clientType,
         profession,
         company_name: companyName,
-        phone,
-        sex,
-        gender,
-        cnpj,
         business_description: businessDescription,
         logo_url: logoUrl,
         updated_at: new Date().toISOString(),
       };
 
-      // Try UPDATE first (as requested)
-      const { data: updatedData, error: updateError } = await supabase
+      const { error: publicError } = await supabase
         .from('profiles')
-        .update(publicUpdates)
-        .eq('user_id', user.id)
-        .select();
-
-      if (updateError) throw updateError;
-
-      // If no row existed to update, Perform INSERT
-      if (!updatedData || updatedData.length === 0) {
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert({
-            user_id: user.id,
-            ...publicUpdates
-          });
-
-        if (insertError) throw insertError;
-      }
-
-      // 1.1 Sync with 'companys' table if the user is a Company
-      if (clientType === 'empresa') {
-        const companyPayload = {
+        .upsert({
           user_id: user.id,
-          company_name: companyName,
-          cnpj: cnpj,
-          updated_at: new Date().toISOString()
-        };
+          ...publicUpdates
+        }, { onConflict: 'user_id' });
 
-        const { error: companyError } = await supabase
-          .from('profiles')
-          .update({ company_name: companyName, cnpj: cnpj, updated_at: new Date().toISOString() })
-          .eq('user_id', user.id);
+      if (publicError) throw publicError;
 
-        if (companyError) {
-          console.error("Error syncing to companys table:", companyError);
-          toast.error("Erro ao sincronizar dados da empresa.");
-        }
+      // 2. Update Private Profile (profiles_private table)
+      const privateUpdates = {
+        phone,
+        cnpj,
+        sex,
+        gender,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error: privateError } = await (supabase
+        .from('profiles_private' as any)
+        .upsert({
+          user_id: user.id,
+          ...privateUpdates
+        }, { onConflict: 'user_id' }));
+
+      if (privateError) {
+        console.error("Error saving private profile:", privateError);
+        // Don't throw here to allow partial success, but warn user
+        toast.error("Erro ao salvar dados privados (telefone, documento).");
       }
 
-      // 2. Sync basic non-sensitive info to metadata (for display name only)
+      // 3. Sync basic non-sensitive info to metadata (for display name only)
       const { error: metadataError } = await supabase.auth.updateUser({
         data: {
           full_name: fullName,

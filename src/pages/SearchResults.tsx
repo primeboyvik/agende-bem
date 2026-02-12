@@ -31,7 +31,7 @@ export default function SearchResults() {
                 // Use the public view that excludes PII
                 let companyQuery = supabase
                     .from('profiles_public')
-                    .select('user_id, company_name, full_name, city, profession, user_type')
+                    .select('user_id, company_name, full_name, city, profession, user_type, logo_url')
                     .eq('user_type', 'empresa');
 
                 if (query) {
@@ -54,7 +54,7 @@ export default function SearchResults() {
                         rating: 4.8,
                         address: company.city || "Localização não informada",
                         description: company.profession || "Prestador de Serviços",
-                        image: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80",
+                        image: company.logo_url || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80",
                         services: []
                     });
                 });

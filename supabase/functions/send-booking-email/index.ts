@@ -21,6 +21,8 @@ interface BookingEmailRequest {
   providerName: string;
   appointmentDate: string;
   appointmentTime: string;
+  participants?: { name: string; document: string }[];
+  numberOfPeople?: number;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -60,6 +62,7 @@ const handler = async (req: Request): Promise<Response> => {
       providerName,
       appointmentDate,
       appointmentTime,
+      participants,
     }: BookingEmailRequest = await req.json();
 
     if (!clientName || !clientEmail || !serviceName || !appointmentDate || !appointmentTime) {
@@ -120,6 +123,17 @@ const handler = async (req: Request): Promise<Response> => {
                   <span class="detail-label">⏰ Horário</span>
                   <span class="detail-value highlight">${appointmentTime}</span>
                 </div>
+                ${participants && participants.length > 0 ? `
+                <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+                  <p style="margin: 0 0 12px 0; font-size: 14px; color: #6b7280; font-weight: 600;">Participantes (${(participants.length + 1)})</p>
+                  ${participants.map((p: any) => `
+                  <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
+                    <span style="color: #374151;">${p.name}</span>
+                    <span style="color: #9ca3af;">${p.document}</span>
+                  </div>
+                  `).join('')}
+                </div>
+                ` : ''}
               </div>
               <p style="color: #6b7280; font-size: 14px; text-align: center;">
                 Nos vemos em breve!

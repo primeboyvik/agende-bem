@@ -24,6 +24,8 @@ interface ProviderData {
   company_name: string | null;
   city: string | null;
   profession: string | null;
+  logo_url: string | null;
+  business_description: string | null;
 }
 
 interface ServiceData {
@@ -64,7 +66,7 @@ const Booking = () => {
       try {
         const { data: profileData, error: profileError } = await supabase
           .from('profiles_public')
-          .select('user_id, full_name, company_name, city, profession')
+          .select('user_id, full_name, company_name, city, profession, logo_url, business_description')
           .eq('user_id', companyId)
           .maybeSingle();
 
@@ -166,16 +168,20 @@ const Booking = () => {
       }
 
       // Insert appointment with provider_id
-      const { error: appointmentError } = await (supabase.from('appointments').insert as any)({
+      const appointmentPayload = {
         client_id: clientId,
         provider_id: companyId,
         service_name: selectedService,
-        visit_type: 'inspiracao',
+        visit_type: searchParams.get('tipo') || 'inspiracao',
         appointment_date: format(selectedDate, 'yyyy-MM-dd'),
         appointment_time: selectedTime + ':00',
         notes: data.notes,
         status: 'pending',
-      });
+        number_of_people: data.numberOfPeople,
+        participants: data.participants,
+      };
+
+      const { error: appointmentError } = await (supabase.from('appointments').insert as any)(appointmentPayload);
 
       if (appointmentError) throw appointmentError;
 
@@ -200,6 +206,8 @@ const Booking = () => {
             providerName: provider?.company_name || provider?.full_name || 'Boo',
             appointmentDate: format(selectedDate, "dd/MM/yyyy"),
             appointmentTime: selectedTime,
+            participants: data.participants,
+            numberOfPeople: data.numberOfPeople,
           },
         });
 
@@ -257,18 +265,27 @@ const Booking = () => {
         {provider && step !== 'success' && (
           <div className="mb-8 p-6 bg-card rounded-xl shadow-sm border flex items-start gap-4">
             <div className="w-20 h-20 rounded-md overflow-hidden bg-primary/10 flex-shrink-0 flex items-center justify-center">
-              <span className="text-3xl font-bold text-primary">
-                {providerDisplayName.charAt(0).toUpperCase()}
-              </span>
+              {provider.logo_url ? (
+                <img src={provider.logo_url} alt={providerDisplayName} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-3xl font-bold text-primary">
+                  {providerDisplayName.charAt(0).toUpperCase()}
+                </span>
+              )}
             </div>
             <div>
               <h1 className="text-2xl font-bold">{providerDisplayName}</h1>
+              {provider.business_description && (
+                <p className="text-sm text-muted-foreground mt-1 line-clamp-2 md:line-clamp-none">
+                  {provider.business_description}
+                </p>
+              )}
               {provider.city && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                   <MapPin className="w-4 h-4" /> {provider.city}
                 </div>
               )}
-              {provider.profession && (
+              {!provider.business_description && provider.profession && (
                 <p className="text-sm text-muted-foreground mt-1">{provider.profession}</p>
               )}
             </div>
